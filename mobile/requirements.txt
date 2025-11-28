@@ -1,0 +1,4 @@
+flet>=0.9.0
+python-dotenv
+opencv-python-headless>=4.5.5
+pyzbar>=0.1.8
