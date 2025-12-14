@@ -33,7 +33,7 @@ def replace_all(rows: list[dict]):
             """,
             (
                 r["uuid"],
-                r["server_id"],
+                r["id"],
                 r["sku"],
                 r["name"],
                 r.get("is_active", 1),

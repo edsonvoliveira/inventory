@@ -1,0 +1,14 @@
+from desktop.core.http_client import get
+from desktop.config.settings import SYNC_BOOTSTRAP_ENDPOINT
+
+# Cole aqui um JWT válido (apenas para teste)
+TEST_JWT = "eyJhbGciOiJIUzI1NiIsImtpZCI6IlNxVEg5QjRUS21LM3VJY3QiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2xzamF4ZXZ4emtuaXNld2FwcGRsLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiI2ZGUyZjUxMy1jM2EzLTQxYmUtODc4NS1hZTZlNDE4MjFiM2IiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzY1NzQzMTA3LCJpYXQiOjE3NjU3Mzk1MDcsImVtYWlsIjoiYWRtaW5AZGVtby5wdCIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzY1NzM5NTA3fV0sInNlc3Npb25faWQiOiJjYmQyNWViMS0wYTVkLTQ4ZmMtYmM5YS1lNzZiMjBjOThiOWIiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.JXPhLod1s4W2IXVNccmeAG_4-xVijGcZ5vjS9RClH7A"
+
+
+def main():
+    payload = get(SYNC_BOOTSTRAP_ENDPOINT, TEST_JWT)
+    print("OK - payload keys:", payload.keys())
+
+
+if __name__ == "__main__":
+    main()

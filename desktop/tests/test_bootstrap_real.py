@@ -1,0 +1,15 @@
+from desktop.core.bootstrap_service import run_bootstrap
+from desktop.data.repositories.app_meta_repo import get_meta
+
+TEST_JWT = "eyJhbGciOiJIUzI1NiIsImtpZCI6IlNxVEg5QjRUS21LM3VJY3QiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2xzamF4ZXZ4emtuaXNld2FwcGRsLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiI2ZGUyZjUxMy1jM2EzLTQxYmUtODc4NS1hZTZlNDE4MjFiM2IiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzY1NzU0MjM0LCJpYXQiOjE3NjU3NTA2MzQsImVtYWlsIjoiYWRtaW5AZGVtby5wdCIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWV9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6InBhc3N3b3JkIiwidGltZXN0YW1wIjoxNzY1NzUwNjM0fV0sInNlc3Npb25faWQiOiJlY2I2YWZiYy1hMDhmLTRiZDYtYTNkOS0wMmRlOTgzOWE0NjciLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.pBc-2UG6MMIjUy0iSGZHBcEIFj6oklieaCEBsRqxrQw"
+
+
+def main():
+    ok = run_bootstrap(TEST_JWT)
+    print("Bootstrap OK?", ok)
+    print("bootstrap_done:", get_meta("bootstrap_done"))
+    print("last_full_sync_at:", get_meta("last_full_sync_at"))
+
+
+if __name__ == "__main__":
+    main()

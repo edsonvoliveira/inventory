@@ -1,26 +1,14 @@
-"""
-Responsabilidade
-- Limpar users_local
-- Inserir usuários vindos do servidor
-- Nenhuma lógica de permissão
-- Nenhuma lógica de sessão
-"""
+# desktop/data/repositories/users_repo.py
 
 from desktop.data.db.connection import get_connection
 
 
 def replace_all(rows: list[dict]):
-    """
-    Substitui completamente os usuários locais
-    (usado apenas no bootstrap lógico).
-    """
     conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("DELETE FROM users_local")
+    conn.execute("DELETE FROM users_local")
 
     for r in rows:
-        cur.execute(
+        conn.execute(
             """
             INSERT INTO users_local (
                 uuid,
@@ -31,15 +19,15 @@ def replace_all(rows: list[dict]):
                 company_id,
                 last_sync_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, NULL)
+            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             """,
             (
-                r["uuid"],
-                r["server_id"],
+                r["uuid"],        # UUID do Supabase
+                r["id"],          # server_id ← id do Supabase
                 r["email"],
                 r.get("name"),
                 r["role"],
-                r["company_id"],
+                r["company_id"],  # ID da empresa no servidor
             ),
         )
 
