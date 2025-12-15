@@ -1,23 +1,39 @@
+# desktop/core/http_client.py
+
 import requests
-from typing import Dict, Any
 
 
 class DVServerError(Exception):
     pass
 
 
-def get(url: str, token: str, timeout: int = 30) -> Dict[str, Any]:
-    """
-    Executa GET no DV Server com Bearer token.
-    """
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/json",
+def _headers(jwt_token: str) -> dict:
+    return {
+        "Authorization": f"Bearer {jwt_token}",
+        "Content-Type": "application/json",
     }
 
-    resp = requests.get(url, headers=headers, timeout=timeout)
 
-    if not resp.ok:
+def get(url: str, jwt_token: str, timeout: int = 10) -> dict:
+    resp = requests.get(url, headers=_headers(jwt_token), timeout=timeout)
+
+    if resp.status_code != 200:
+        raise DVServerError(
+            f"DV Server error {resp.status_code}: {resp.text}"
+        )
+
+    return resp.json()
+
+
+def post(url: str, jwt_token: str, json_body: dict, timeout: int = 10) -> dict:
+    resp = requests.post(
+        url,
+        headers=_headers(jwt_token),
+        json=json_body,
+        timeout=timeout,
+    )
+
+    if resp.status_code != 200:
         raise DVServerError(
             f"DV Server error {resp.status_code}: {resp.text}"
         )
