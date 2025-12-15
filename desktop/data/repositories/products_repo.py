@@ -1,42 +1,45 @@
-"""
-Responsabilidade
-- Substituir completamente o catálogo local
-- Trabalhar apenas com dados mestre
-- Nenhuma regra de inventário
-"""
+# desktop/data/repositories/products_repo.py
 
 from desktop.data.db.connection import get_connection
+from typing import List, Dict, Any
 
 
-def replace_all(rows: list[dict]):
+def replace_all(rows: List[Dict[str, Any]]):
     """
-    Substitui completamente os produtos locais
-    (bootstrap lógico).
+    Substitui todos os produtos locais pelos dados vindos do servidor.
+    Usado em:
+    - bootstrap inicial
+    - full resync controlado
     """
     conn = get_connection()
-    cur = conn.cursor()
 
-    cur.execute("DELETE FROM products_local")
+    conn.execute("DELETE FROM products_local")
 
     for r in rows:
-        cur.execute(
+        conn.execute(
             """
             INSERT INTO products_local (
                 uuid,
                 server_id,
                 sku,
                 name,
+                uom_inventory,
+                system_qty,
+                serial_number_enabled,
                 is_active,
                 synced
             )
-            VALUES (?, ?, ?, ?, ?, 1)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
             """,
             (
                 r["uuid"],
-                r["id"],
+                r["server_id"],                       # id do produto no Postgres
                 r["sku"],
                 r["name"],
-                r.get("is_active", 1),
+                r.get("uom_inventory"),
+                r.get("system_qty", 0),
+                1 if r.get("serial_number_enabled", False) else 0,
+                1 if r.get("is_active", True) else 0,
             ),
         )
 

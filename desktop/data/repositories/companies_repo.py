@@ -1,16 +1,18 @@
+# desktop/data/repositories/companies_repo.py
 from desktop.data.db.connection import get_connection
 
-
-def replace_all(rows: list[dict]):
+def replace_all(rows: list[dict]) -> None:
     conn = get_connection()
-    conn.execute("DELETE FROM companies_local")
+    cur = conn.cursor()
+
+    cur.execute("DELETE FROM companies_local")
 
     for r in rows:
-        conn.execute(
+        cur.execute(
             """
             INSERT INTO companies_local (
-                server_id,
                 uuid,
+                server_id,
                 name,
                 vat_number,
                 is_active,
@@ -19,11 +21,11 @@ def replace_all(rows: list[dict]):
             VALUES (?, ?, ?, ?, ?, 1)
             """,
             (
-                r["id"],          # 🔹 server_id ← id do Supabase
-                r["uuid"],        # 🔹 uuid do servidor
+                r["uuid"],
+                r["server_id"],
                 r["name"],
                 r.get("vat_number"),
-                r.get("is_active", 1),
+                1 if r.get("is_active", True) else 0,
             ),
         )
 
