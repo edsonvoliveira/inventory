@@ -1,6 +1,7 @@
 # desktop/core/sync_service.py
 
 from typing import Tuple, Dict, Any, List
+import json
 
 from desktop.core.http_client import post
 from desktop.config.settings import SYNC_PUSH_ENDPOINT
@@ -41,7 +42,7 @@ def push_outbox_once(jwt_token: str) -> Tuple[int, int]:
                 "table_name": row["table_name"],
                 "operation": row["operation"],
                 "record_uuid": row["record_uuid"],
-                "payload": row["payload"],
+                "payload": json.loads(row["payload"]),
             }
         )
 
