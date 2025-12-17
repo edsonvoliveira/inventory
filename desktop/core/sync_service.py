@@ -1,133 +1,67 @@
 # desktop/core/sync_service.py
-from datetime import datetime
 
-from desktop.bootstrap.bootstrap import wipe_local_database
-from desktop.data.repositories.app_meta_repo import (
-    get_meta,
-    set_meta,
-)
-from desktop.data.repositories import (
-    companies_repo,
-    users_repo,
-    products_repo,
-    events_repo,
+from typing import Tuple, Dict, Any, List
+
+from desktop.core.http_client import post
+from desktop.config.settings import SYNC_PUSH_ENDPOINT
+from desktop.data.outbox.outbox_repo import (
+    get_pending,
+    mark_success,
+    mark_failed,
 )
 
-# -------------------------------------------------
-# BOOTSTRAP LÓGICO (APÓS LOGIN)
-# -------------------------------------------------
 
-def ensure_bootstrap_for_company(
-    company_id: int,
-    company_uuid: str
-) -> bool:
+def push_outbox_once(jwt_token: str) -> Tuple[int, int]:
     """
-    Garante que o DB local está inicializado para a empresa correta.
-    Retorna True se o bootstrap foi executado.
-    """
+    Envia um lote de registos da outbox_local para o DV Server.
 
-    stored_company_id = get_meta("company_id")
-    bootstrap_done = get_meta("bootstrap_done") == "true"
+    - Lê até N registos pendentes (attempts < 5)
+    - Monta o payload no formato esperado pelo /v1/sync/push
+    - Chama o endpoint
+    - Remove os 'accepted'
+    - Marca como falhados os 'failed'
 
-    # DB nunca inicializado
-    if stored_company_id is None:
-        _prepare_bootstrap(company_id, company_uuid)
-        run_full_sync()
-        return True
-
-    # Empresa diferente → reset total
-    if stored_company_id != str(company_id):
-        wipe_local_database()
-        _prepare_bootstrap(company_id, company_uuid)
-        run_full_sync()
-        return True
-
-    # Mesma empresa, mas bootstrap incompleto
-    if not bootstrap_done:
-        run_full_sync()
-        return True
-
-    # Tudo OK
-    return False
-
-
-def _prepare_bootstrap(company_id: int, company_uuid: str):
-    """
-    Prepara o app_meta para bootstrap lógico.
-    """
-    set_meta("company_id", str(company_id))
-    set_meta("company_uuid", company_uuid)
-    set_meta("bootstrap_done", "false")
-
-
-# -------------------------------------------------
-# FULL SYNC (SIMULADO)
-# -------------------------------------------------
-
-def run_full_sync():
-    """
-    Simula o endpoint /sync/bootstrap do DV Server.
+    Retorna (qtd_accepted, qtd_failed).
     """
 
-    payload = _mock_bootstrap_payload()
+    pending = get_pending(limit=100)
 
-    # Grava dados mestre
-    companies_repo.replace_all(payload["companies"])
-    users_repo.replace_all(payload["users"])
-    products_repo.replace_all(payload["products"])
-    events_repo.replace_all(payload["events"])
+    if not pending:
+        return 0, 0
 
-    # Marca bootstrap como concluído
-    now = datetime.utcnow().isoformat()
-    set_meta("last_full_sync_at", now)
-    set_meta("last_incremental_sync_at", now)
-    set_meta("bootstrap_done", "true")
-
-
-# -------------------------------------------------
-# MOCK DO SERVIDOR
-# -------------------------------------------------
-
-def _mock_bootstrap_payload():
-    """
-    Simula resposta do DV Server para bootstrap inicial.
-    """
-
-    return {
-        "companies": [
-            {
-                "uuid": "company-uuid-1",
-                "server_id": 1,
-                "name": "Empresa Demo",
-                "vat_number": "PT123456789",
-                "is_active": 1,
-            }
-        ],
-        "users": [
-            {
-                "uuid": "user-uuid-1",
-                "server_id": 1,
-                "email": "admin@empresa.demo",
-                "name": "Admin",
-                "role": "admin",
-                "company_id": 1,
-            }
-        ],
-        "products": [
-            {
-                "uuid": "prod-uuid-1",
-                "server_id": 1,
-                "sku": "SKU001",
-                "name": "Produto Demo",
-                "is_active": 1,
-            }
-        ],
-        "events": [
-            {
-                "uuid": "event-uuid-1",
-                "server_id": 1,
-                "title": "Inventário Geral",
-                "status": "open",
-            }
-        ],
+    # Mapa record_uuid -> outbox_id
+    id_by_uuid: Dict[str, int] = {
+        row["record_uuid"]: row["id"] for row in pending
     }
+
+    items: List[Dict[str, Any]] = []
+    for row in pending:
+        items.append(
+            {
+                "table_name": row["table_name"],
+                "operation": row["operation"],
+                "record_uuid": row["record_uuid"],
+                "payload": row["payload"],
+            }
+        )
+
+    payload = {"items": items}
+
+    # Chamada ao DV Server
+    resp = post(SYNC_PUSH_ENDPOINT, jwt_token, payload)
+
+    accepted_uuids = resp.get("accepted", []) or []
+    failed_uuids = resp.get("failed", []) or []
+
+    # Remover da outbox os aceites
+    success_ids = [id_by_uuid[u] for u in accepted_uuids if u in id_by_uuid]
+    if success_ids:
+        mark_success(success_ids)
+
+    # Atualizar tentativa + erro genérico nos falhados
+    for u in failed_uuids:
+        outbox_id = id_by_uuid.get(u)
+        if outbox_id is not None:
+            mark_failed(outbox_id, "Rejected by DV Server")
+
+    return len(accepted_uuids), len(failed_uuids)
