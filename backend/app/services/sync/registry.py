@@ -9,6 +9,7 @@ from app.services.sync.products import ProductSyncHandler
 from app.services.sync.product_categories import ProductCategorySyncHandler
 from app.services.sync.locations import LocationSyncHandler
 from app.services.sync.inventory_events import InventoryEventSyncHandler
+from app.services.sync.inventory_event_targets import InventoryEventTargetSyncHandler
 
 SYNC_HANDLERS: Dict[str, BaseSyncHandler] = {
     "inventory_items": InventoryItemSyncHandler(),
@@ -16,4 +17,5 @@ SYNC_HANDLERS: Dict[str, BaseSyncHandler] = {
     "product_categories": ProductCategorySyncHandler(),
     "locations": LocationSyncHandler(),
     "inventory_events": InventoryEventSyncHandler(),
+    "inventory_event_targets": InventoryEventTargetSyncHandler(),
 }
