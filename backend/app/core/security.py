@@ -17,6 +17,7 @@ class CurrentUser:
     auth_uid: str
     email: str | None
     db_user_id: int
+    company_id: int
 
 
 async def get_current_user(
@@ -50,41 +51,49 @@ async def get_current_user(
 
     user_resp = (
         sb.table("users")
-        .select("id")
+        .select("id, company_id")
         .eq("supabase_auth_id", auth_uid)
         .limit(1)
         .execute()
     )
 
-    if not isinstance(user_resp.data, list) or not user_resp.data:
+    data = user_resp.data
+
+    if not isinstance(data, list) or len(data) == 0:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usuário não registrado no sistema",
         )
 
-    user_data = user_resp.data
+    row = data[0]
 
-    # 1️⃣ Garantir lista válida
-    if not isinstance(user_data, list) or len(user_data) == 0:
-        raise RuntimeError("Usuário não encontrado no Supabase")
+    if not isinstance(row, dict):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Resposta inválida ao resolver usuário",
+        )
 
-    raw_user = user_data[0]
+    raw_user_id = row.get("id")
+    raw_company_id = row.get("company_id")
 
-    # 2️⃣ Garantir dict
-    if not isinstance(raw_user, dict):
-        raise RuntimeError("Formato inválido do usuário retornado")
-
-    raw_user_id = raw_user.get("id")
-
-    # 3️⃣ Garantir ID válido
     if not isinstance(raw_user_id, (int, str)):
-        raise RuntimeError("ID inválido do usuário")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ID inválido do usuário",
+        )
 
-    db_user_id: int = int(raw_user_id)
+    if not isinstance(raw_company_id, (int, str)):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="company_id inválido do usuário",
+        )
 
+    db_user_id = int(raw_user_id)
+    company_id = int(raw_company_id)
 
     return CurrentUser(
         auth_uid=auth_uid,
         email=email,
         db_user_id=db_user_id,
+        company_id=company_id,
     )
