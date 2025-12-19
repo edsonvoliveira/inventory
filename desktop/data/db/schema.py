@@ -1,8 +1,11 @@
-# data/db/schema.py
+# desktop/data/db/schema.py
 
 """
 Responsabilidade:
 - Definir todo o schema SQLite Desktop
+- Cache local (offline-first)
+- Outbox para Sync Push
+- Suporte a Sync Pull incremental
 - Incluir:
     - app_meta
     - tabelas locais
@@ -10,7 +13,7 @@ Responsabilidade:
 - Definir SCHEMA_VERSION
 """
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA_SQL = """
 PRAGMA foreign_keys = ON;
@@ -34,7 +37,11 @@ CREATE TABLE IF NOT EXISTS users_local (
   name TEXT,
   role TEXT NOT NULL,
   company_id INTEGER NOT NULL,
-  last_sync_at DATETIME
+
+  updated_at DATETIME,
+  last_sync_at DATETIME,
+  deleted_at DATETIME,
+  last_origin TEXT
 );
 
 CREATE TABLE IF NOT EXISTS devices_local (
@@ -44,7 +51,11 @@ CREATE TABLE IF NOT EXISTS devices_local (
   device_name TEXT,
   os TEXT,
   app_version TEXT,
-  last_sync_at DATETIME
+
+  updated_at DATETIME,
+  last_sync_at DATETIME,
+  deleted_at DATETIME,
+  last_origin TEXT
 );
 
 -- ======================================================
@@ -57,7 +68,11 @@ CREATE TABLE IF NOT EXISTS companies_local (
   name TEXT NOT NULL,
   vat_number TEXT,
   is_active INTEGER DEFAULT 1,
-  synced INTEGER DEFAULT 1
+
+  updated_at DATETIME,
+  last_sync_at DATETIME,
+  deleted_at DATETIME,
+  last_origin TEXT
 );
 
 CREATE TABLE IF NOT EXISTS locations_local (
@@ -67,7 +82,11 @@ CREATE TABLE IF NOT EXISTS locations_local (
   code TEXT,
   name TEXT NOT NULL,
   is_active INTEGER DEFAULT 1,
-  synced INTEGER DEFAULT 1
+
+  updated_at DATETIME,
+  last_sync_at DATETIME,
+  deleted_at DATETIME,
+  last_origin TEXT
 );
 
 CREATE TABLE IF NOT EXISTS product_categories_local (
@@ -76,8 +95,13 @@ CREATE TABLE IF NOT EXISTS product_categories_local (
   server_id INTEGER NOT NULL,
   code TEXT,
   name TEXT NOT NULL,
+  description TEXT,
   is_active INTEGER DEFAULT 1,
-  synced INTEGER DEFAULT 1
+
+  updated_at DATETIME,
+  last_sync_at DATETIME,
+  deleted_at DATETIME,
+  last_origin TEXT
 );
 
 CREATE TABLE IF NOT EXISTS products_local (
@@ -86,11 +110,17 @@ CREATE TABLE IF NOT EXISTS products_local (
   server_id INTEGER NOT NULL,
   sku TEXT NOT NULL,
   name TEXT NOT NULL,
+  description TEXT,
+  uom_base TEXT,
   uom_inventory TEXT,
   system_qty REAL,
   serial_number_enabled INTEGER DEFAULT 0,
   is_active INTEGER DEFAULT 1,
-  synced INTEGER DEFAULT 1
+
+  updated_at DATETIME,
+  last_sync_at DATETIME,
+  deleted_at DATETIME,
+  last_origin TEXT
 );
 
 CREATE TABLE IF NOT EXISTS product_barcodes_local (
@@ -100,7 +130,11 @@ CREATE TABLE IF NOT EXISTS product_barcodes_local (
   product_uuid TEXT NOT NULL,
   barcode TEXT NOT NULL,
   is_active INTEGER DEFAULT 1,
-  synced INTEGER DEFAULT 1
+
+  updated_at DATETIME,
+  last_sync_at DATETIME,
+  deleted_at DATETIME,
+  last_origin TEXT
 );
 
 -- ======================================================
@@ -113,7 +147,11 @@ CREATE TABLE IF NOT EXISTS inventory_events_local (
   title TEXT NOT NULL,
   status TEXT NOT NULL,
   event_type TEXT,
-  synced INTEGER DEFAULT 1
+
+  updated_at DATETIME,
+  last_sync_at DATETIME,
+  deleted_at DATETIME,
+  last_origin TEXT
 );
 
 CREATE TABLE IF NOT EXISTS inventory_event_targets_local (
@@ -123,7 +161,11 @@ CREATE TABLE IF NOT EXISTS inventory_event_targets_local (
   event_uuid TEXT NOT NULL,
   product_uuid TEXT NOT NULL,
   expected_qty REAL DEFAULT 0,
-  synced INTEGER DEFAULT 1
+
+  updated_at DATETIME,
+  last_sync_at DATETIME,
+  deleted_at DATETIME,
+  last_origin TEXT
 );
 
 CREATE TABLE IF NOT EXISTS zones_local (
@@ -134,11 +176,15 @@ CREATE TABLE IF NOT EXISTS zones_local (
   name TEXT NOT NULL,
   count_status TEXT,
   lock_status TEXT,
-  synced INTEGER DEFAULT 1
+
+  updated_at DATETIME,
+  last_sync_at DATETIME,
+  deleted_at DATETIME,
+  last_origin TEXT
 );
 
 -- ======================================================
--- INVENTÁRIO (OPERAÇÃO OFFLINE)
+-- INVENTÁRIO (OPERAÇÃO OFFLINE / MOBILE / DESKTOP)
 -- ======================================================
 CREATE TABLE IF NOT EXISTS inventory_items_local (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -147,14 +193,21 @@ CREATE TABLE IF NOT EXISTS inventory_items_local (
   zone_uuid TEXT NOT NULL,
   product_uuid TEXT,
   user_uuid TEXT,
+
   scanned_code TEXT,
   qty_counted REAL DEFAULT 0,
   batch_number TEXT,
   expiry_date TEXT,
+
   device_timestamp DATETIME,
+  server_updated_at DATETIME,
+
   source TEXT DEFAULT 'desktop',
+
   synced INTEGER DEFAULT 0,
-  synced_at DATETIME
+  synced_at DATETIME,
+
+  last_origin TEXT
 );
 
 CREATE TABLE IF NOT EXISTS zone_user_progress_local (
@@ -163,15 +216,19 @@ CREATE TABLE IF NOT EXISTS zone_user_progress_local (
   server_id INTEGER,
   zone_uuid TEXT NOT NULL,
   user_uuid TEXT NOT NULL,
+
   started_at DATETIME,
   finished_at DATETIME,
   is_finished INTEGER DEFAULT 0,
+
   synced INTEGER DEFAULT 0,
-  synced_at DATETIME
+  synced_at DATETIME,
+
+  last_origin TEXT
 );
 
 -- ======================================================
--- OUTBOX (SINCRONIZAÇÃO)
+-- OUTBOX (SINCRONIZAÇÃO PUSH)
 -- ======================================================
 CREATE TABLE IF NOT EXISTS outbox_local (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -184,3 +241,4 @@ CREATE TABLE IF NOT EXISTS outbox_local (
   last_error TEXT
 );
 """
+
