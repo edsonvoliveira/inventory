@@ -1,46 +1,62 @@
 # desktop/data/repositories/inventory_events_repo.py
+
 """
-Responsabilidade
-- Inserir eventos de inventário
-- Apenas estrutura do evento
-- Zonas, targets e itens vêm depois
+Responsabilities:
+- Repository for inventory events entity
+- Inherits basic CRUD, outbox, and sync from BaseRepo
+- Configured via RepoConfig for inventory events-specific behavior
 """
-from desktop.data.db.connection import get_connection
-from typing import List, Dict, Any
 
+from desktop.data.repositories.base_repo import BaseRepo, RepoConfig
 
-def replace_all(rows: List[Dict[str, Any]]):
-    """
-    Substitui todos os eventos locais pelos dados vindos do servidor.
-    Usado em:
-    - bootstrap inicial
-    - full resync
-    """
-    conn = get_connection()
+_INVENTORY_EVENTS_CFG = RepoConfig(
+    table="inventory_events_local",
+    entity_name="inventory_events",
 
-    conn.execute("DELETE FROM inventory_events_local")
+    uuid_col="uuid",
 
-    for r in rows:
-        conn.execute(
-            """
-            INSERT INTO inventory_events_local (
-                uuid,
-                server_id,
-                title,
-                status,
-                event_type,
-                synced
-            )
-            VALUES (?, ?, ?, ?, ?, 1)
-            """,
-            (
-                r["uuid"],
-                r["id"],
-                r["title"],
-                r["status"],
-                r.get("event_type"),
-            ),
-        )
+    synced_col="synced",
+    synced_at_col="synced_at",
+    updated_at_col="updated_at",
+    deleted_at_col="deleted_at",
+    active_col="is_active",
+    source_col="source",
 
-    conn.commit()
-    conn.close()
+    enable_outbox=True,
+
+    ui_writable_cols=(
+        "location_server_id",
+        "title",
+        "event_type",
+        "status",
+        "required_counts",
+        "required_audits",
+        "tolerance_percent",
+        "tolerance_absolute",
+    ),
+
+    server_upsert_cols=(
+        "uuid",
+        "server_id",
+        "company_server_id",
+        "location_server_id",
+        "title",
+        "event_type",
+        "status",
+        "required_counts",
+        "required_audits",
+        "tolerance_percent",
+        "tolerance_absolute",
+        "is_active",
+        "created_at",
+        "updated_at",
+        "deleted_at",
+        "synced",
+        "synced_at",
+        "source",
+    ),
+)
+
+class InventoryEventsRepo(BaseRepo):
+    def __init__(self, conn=None):
+        super().__init__(_INVENTORY_EVENTS_CFG, conn)

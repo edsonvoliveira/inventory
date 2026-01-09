@@ -1,3 +1,9 @@
+#desktop/tests/bootstrap/test_wipe.py
+"""
+Responsabilities:
+- Test the wipe_local_database function
+- Verify that certain meta keys are preserved after wipe
+"""
 from desktop.bootstrap.bootstrap import bootstrap_app, wipe_local_database
 from desktop.data.repositories.app_meta_repo import get_meta, set_meta
 import os

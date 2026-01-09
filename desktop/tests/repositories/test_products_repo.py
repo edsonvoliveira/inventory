@@ -1,14 +1,13 @@
 #desktop/tests/repositories/test_products_repo.py
 """
 Responsabilities:
-- Tests for ProductsRepo CRUD operations
+- Unit tests for ProductsRepo
+- Test CRUD operations, outbox functionality, and syncing behavior
 - Uses an in-memory SQLite database for isolation
 - Verifies correct handling of product data
 """
 
-from desktop.data.repositories.conftest import conn_with_company
 from desktop.data.repositories.products_repo import ProductsRepo
-from desktop.tests.helpers.db import make_test_connection
 
 def test_products_create(conn_with_company):
     repo = ProductsRepo(conn_with_company)

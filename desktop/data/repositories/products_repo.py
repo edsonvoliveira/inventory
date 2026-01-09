@@ -1,4 +1,5 @@
 # desktop/data/repositories/products_repo.py
+
 """
 Responsabilities:
 - Repository for products entity

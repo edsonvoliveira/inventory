@@ -1,41 +1,57 @@
 # desktop/data/repositories/product_barcodes_repo.py
 
-from desktop.data.db.connection import get_connection
-from typing import List, Dict, Any
+"""
+Responsabilities:
+- Repository for product_barcodes entity
+- Inherits basic CRUD, outbox, and sync from BaseRepo
+- Configured via RepoConfig for product_barcodes-specific behavior
+"""
+
+from desktop.data.repositories.base_repo import BaseRepo, RepoConfig
 
 
-def replace_all(rows: List[Dict[str, Any]]):
-    """
-    Substitui todos os códigos de barras locais pelos dados vindos do servidor.
-    Usado em:
-    - bootstrap inicial
-    - full resync controlado
-    """
-    conn = get_connection()
+_PRODUCT_BARCODES_CFG = RepoConfig(
+    table="product_barcodes_local",
+    entity_name="product_barcodes",
 
-    conn.execute("DELETE FROM product_barcodes_local")
+    uuid_col="uuid",
 
-    for r in rows:
-        conn.execute(
-            """
-            INSERT INTO product_barcodes_local (
-                uuid,
-                server_id,
-                product_uuid,
-                barcode,
-                is_active,
-                synced
-            )
-            VALUES (?, ?, ?, ?, ?, 1)
-            """,
-            (
-                r["uuid"],
-                r["id"],           # id do barcode no Postgres
-                r["product_uuid"],        # vínculo correto com produto local
-                r["barcode"],
-                1 if r.get("is_active", True) else 0,
-            ),
-        )
+    # colunas de controle
+    synced_col="synced",
+    synced_at_col="synced_at",
+    updated_at_col="updated_at",
+    deleted_at_col="deleted_at",
+    source_col="source",
+    active_col="is_active",
 
-    conn.commit()
-    conn.close()
+    enable_outbox=True,
+
+    # campos que a UI pode escrever
+    ui_writable_cols=(
+        "product_server_id",
+        "barcode",
+        "description",
+    ),
+
+    # colunas usadas no pull (server → local)
+    server_upsert_cols=(
+        "uuid",
+        "server_id",
+        "company_server_id",
+        "product_server_id",
+        "barcode",
+        "description",
+        "is_active",
+        "created_at",
+        "updated_at",
+        "deleted_at",
+        "synced",
+        "synced_at",
+        "source",
+    ),
+)
+
+
+class ProductBarcodesRepo(BaseRepo):
+    def __init__(self, conn=None):
+        super().__init__(_PRODUCT_BARCODES_CFG, conn)

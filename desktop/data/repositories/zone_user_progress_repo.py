@@ -1,147 +1,60 @@
 # desktop/data/repositories/zone_user_progress_repo.py
 
-import json
-import uuid
-from datetime import datetime, timezone
+"""
+Responsabilities:
+- Repository for zone_user_progress entity
+- Inherits basic CRUD, outbox, and sync from BaseRepo
+- Configured via RepoConfig for zone_user_progress-specific behavior
+"""
 
-from desktop.data.db.connection import get_connection
+from desktop.data.repositories.base_repo import BaseRepo, RepoConfig
 
+_ZONE_USER_PROGRESS_CFG = RepoConfig(
+    table="zone_user_progress_local",
+    entity_name="zone_user_progress",
 
-def start_zone(
-    *,
-    zone_uuid: str,
-    user_uuid: str,
-    device_id: str | None = None,
-) -> str:
-    """
-    Registra o início da contagem de uma zona por um usuário.
-    Retorna o UUID da sessão criada.
-    """
+    uuid_col="uuid",
 
-    progress_uuid = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
+    synced_col="synced",
+    synced_at_col="synced_at",
+    updated_at_col="updated_at",
+    deleted_at_col="deleted_at",
+    source_col="source",
 
-    payload = {
-        "uuid": progress_uuid,
-        "zone_uuid": zone_uuid,
-        "user_uuid": user_uuid,
-        "started_at": now,
-        "device_id": device_id,
-    }
+    active_col=None,
+    enable_outbox=True,
 
-    conn = get_connection()
+    ui_writable_cols=(
+        "zone_server_id",
+        "user_server_id",
+        "count_type",
+        "started_at",
+        "finished_at",
+        "is_finished",
+        "items_counted",
+        "qty_total",
+        "device_id",
+    ),
 
-    # 1️⃣ Inserir progresso local
-    conn.execute(
-        """
-        INSERT INTO zone_user_progress_local (
-            uuid,
-            zone_uuid,
-            user_uuid,
-            started_at,
-            is_finished,
-            synced
-        )
-        VALUES (?, ?, ?, ?, 0, 0)
-        """,
-        (
-            progress_uuid,
-            zone_uuid,
-            user_uuid,
-            now,
-        ),
-    )
+    server_upsert_cols=(
+        "uuid",
+        "server_id",
+        "zone_server_id",
+        "user_server_id",
+        "count_type",
+        "started_at",
+        "finished_at",
+        "is_finished",
+        "items_counted",
+        "qty_total",
+        "device_id",
+        "deleted_at",
+        "synced",
+        "synced_at",
+        "source",
+    ),
+)
 
-    # 2️⃣ Criar outbox
-    conn.execute(
-        """
-        INSERT INTO outbox_local (
-            table_name,
-            operation,
-            record_uuid,
-            payload
-        )
-        VALUES (?, ?, ?, ?)
-        """,
-        (
-            "zone_user_progress",
-            "insert",
-            progress_uuid,
-            json.dumps(payload),
-        ),
-    )
-
-    conn.commit()
-    conn.close()
-
-    return progress_uuid
-
-
-def finish_zone(
-    *,
-    progress_uuid: str,
-):
-    """
-    Finaliza a contagem de uma zona.
-    """
-
-    now = datetime.now(timezone.utc).isoformat()
-
-    payload = {
-        "uuid": progress_uuid,
-        "finished_at": now,
-        "is_finished": True,
-    }
-
-    conn = get_connection()
-
-    # 1️⃣ Atualizar progresso local
-    conn.execute(
-        """
-        UPDATE zone_user_progress_local
-        SET finished_at = ?,
-            is_finished = 1,
-            synced = 0
-        WHERE uuid = ?
-        """,
-        (
-            now,
-            progress_uuid,
-        ),
-    )
-
-    # 2️⃣ Criar outbox
-    conn.execute(
-        """
-        INSERT INTO outbox_local (
-            table_name,
-            operation,
-            record_uuid,
-            payload
-        )
-        VALUES (?, ?, ?, ?)
-        """,
-        (
-            "zone_user_progress",
-            "update",
-            progress_uuid,
-            json.dumps(payload),
-        ),
-    )
-
-    conn.commit()
-    conn.close()
-
-
-def mark_as_synced(*, uuid: str, server_id: int):
-    conn = get_connection()
-    conn.execute(
-        """
-        UPDATE zone_user_progress_local
-        SET server_id = ?, synced = 1, synced_at = ?
-        WHERE uuid = ?
-        """,
-        (server_id, datetime.now(timezone.utc).isoformat(), uuid),
-    )
-    conn.commit()
-    conn.close()
+class ZoneUserProgressRepo(BaseRepo):
+    def __init__(self, conn=None):
+        super().__init__(_ZONE_USER_PROGRESS_CFG, conn)

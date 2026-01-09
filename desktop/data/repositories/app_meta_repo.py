@@ -1,8 +1,11 @@
 # data/repositories/app_meta_repo.py
+
 """
-Responsabilidade:
-- Ler/escrever app_meta
-- Funções simples (get, set, delete, clear)
+Responsabilities:
+- Repository for app_meta entity
+- Provides functions to get, set, delete, and clear metadata entries
+- Uses direct SQL queries for operations
+- Manages database connections appropriately
 """
 
 from desktop.data.db.connection import get_connection

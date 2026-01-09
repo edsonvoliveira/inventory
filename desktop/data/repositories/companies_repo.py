@@ -1,33 +1,52 @@
 # desktop/data/repositories/companies_repo.py
-from desktop.data.db.connection import get_connection
 
-def replace_all(rows: list[dict]) -> None:
-    conn = get_connection()
-    cur = conn.cursor()
+"""
+Responsabilities:
+- Repository for companies entity
+- Inherits basic CRUD, outbox, and sync from BaseRepo
+- Configured via RepoConfig for companies-specific behavior
+- Companies do not allow offline creation via UI
+"""
 
-    cur.execute("DELETE FROM companies_local")
+from desktop.data.repositories.base_repo import BaseRepo, RepoConfig
 
-    for r in rows:
-        cur.execute(
-            """
-            INSERT INTO companies_local (
-                uuid,
-                server_id,
-                name,
-                vat_number,
-                is_active,
-                synced
-            )
-            VALUES (?, ?, ?, ?, ?, 1)
-            """,
-            (
-                r["uuid"],
-                r["id"],
-                r["name"],
-                r.get("vat_number"),
-                1 if r.get("is_active", True) else 0,
-            ),
-        )
+_COMPANIES_CFG = RepoConfig(
+    table="companies_local",
+    entity_name="companies",
 
-    conn.commit()
-    conn.close()
+    uuid_col="uuid",
+
+    # controle
+    synced_col="synced",
+    synced_at_col="synced_at",
+    updated_at_col="updated_at",
+    deleted_at_col="deleted_at",
+    source_col="source",
+    active_col="is_active",
+
+    enable_outbox=False,   # regra de domínio
+
+    # UI NÃO cria empresa offline; apenas leitura
+    ui_writable_cols=(),
+
+    # pull / bootstrap
+    server_upsert_cols=(
+        "uuid",
+        "server_id",
+        "name",
+        "vat_number",
+        "country_code",
+        "address",
+        "is_active",
+        "created_at",
+        "updated_at",
+        "deleted_at",
+        "synced",
+        "synced_at",
+        "source",
+    ),
+)
+
+class CompaniesRepo(BaseRepo):
+    def __init__(self, conn=None):
+        super().__init__(_COMPANIES_CFG, conn)

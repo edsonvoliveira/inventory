@@ -1,43 +1,57 @@
 # desktop/data/repositories/zones_repo.py
 
-from desktop.data.db.connection import get_connection
-from typing import List, Dict, Any
+"""
+Responsabilities:
+- Repository for zones entity
+- Inherits basic CRUD, outbox, and sync from BaseRepo
+- Configured via RepoConfig for zones-specific behavior
+"""
+
+from desktop.data.repositories.base_repo import BaseRepo, RepoConfig
 
 
-def replace_all(rows: List[Dict[str, Any]]):
-    """
-    Substitui todas as zonas locais pelos dados vindos do servidor.
-    Usado em:
-    - bootstrap inicial
-    - full resync
-    """
-    conn = get_connection()
+_ZONES_CFG = RepoConfig(
+    table="zones_local",
+    entity_name="zones",
 
-    conn.execute("DELETE FROM zones_local")
+    uuid_col="uuid",
 
-    for r in rows:
-        conn.execute(
-            """
-            INSERT INTO zones_local (
-                uuid,
-                server_id,
-                event_uuid,
-                name,
-                count_status,
-                lock_status,
-                synced
-            )
-            VALUES (?, ?, ?, ?, ?, ?, 1)
-            """,
-            (
-                r["uuid"],
-                r["id"],
-                r["event_uuid"],
-                r["name"],
-                r.get("count_status"),
-                r.get("lock_status"),
-            ),
-        )
+    synced_col="synced",
+    synced_at_col="synced_at",
+    updated_at_col="updated_at",
+    deleted_at_col="deleted_at",
+    active_col="is_active",
+    source_col="source",
 
-    conn.commit()
-    conn.close()
+    enable_outbox=True,
+
+    ui_writable_cols=(
+        "event_server_id",
+        "name",
+        "description",
+        "count_status",
+        "lock_status",
+    ),
+
+    server_upsert_cols=(
+        "uuid",
+        "server_id",
+        "event_server_id",
+        "name",
+        "description",
+        "count_status",
+        "lock_status",
+        "is_active",
+        "created_at",
+        "updated_at",
+        "deleted_at",
+        "synced",
+        "synced_at",
+        "source",
+    ),
+)
+
+
+class ZonesRepo(BaseRepo):
+    def __init__(self, conn=None):
+        super().__init__(_ZONES_CFG, conn)

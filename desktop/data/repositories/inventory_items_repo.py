@@ -1,99 +1,71 @@
 # desktop/data/repositories/inventory_items_repo.py
 
-import json
-import uuid
-from datetime import datetime, timezone
-from typing import Optional
+"""
+Responsabilities:
+- Repository for inventory_items entity
+- Inherits basic CRUD, outbox, and sync from BaseRepo
+- Configured via RepoConfig for inventory_items-specific behavior
+"""
 
-from desktop.data.db.connection import get_connection
+from desktop.data.repositories.base_repo import BaseRepo, RepoConfig
 
 
-def insert_item(
-    *,
-    zone_uuid: str,
-    product_uuid: Optional[str],
-    user_uuid: Optional[str],
-    scanned_code: Optional[str],
-    qty_counted: float,
-    batch_number: Optional[str] = None,
-    expiry_date: Optional[str] = None,
-    source: str = "desktop",
-) -> str:
-    """
-    Registra uma contagem localmente e cria entrada na outbox.
-    Retorna o UUID local do item criado.
-    """
+_INVENTORY_ITEMS_CFG = RepoConfig(
+    table="inventory_items_local",
+    entity_name="inventory_items",
 
-    item_uuid = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
+    uuid_col="uuid",
 
-    payload = {
-        "uuid": item_uuid,
-        "zone_uuid": zone_uuid,
-        "product_uuid": product_uuid,
-        "user_uuid": user_uuid,
-        "scanned_code": scanned_code,
-        "qty_counted": qty_counted,
-        "batch_number": batch_number,
-        "expiry_date": expiry_date,
-        "device_timestamp": now,
-        "source": source,
-    }
+    synced_col="synced",
+    synced_at_col="synced_at",
+    updated_at_col="updated_at",
+    deleted_at_col="deleted_at",
+    source_col="source",
 
-    conn = get_connection()
+    # itens operacionais NÃO têm is_active
+    active_col=None,
 
-    # 1️⃣ Inserir item local
-    conn.execute(
-        """
-        INSERT INTO inventory_items_local (
-            uuid,
-            zone_uuid,
-            product_uuid,
-            user_uuid,
-            scanned_code,
-            qty_counted,
-            batch_number,
-            expiry_date,
-            device_timestamp,
-            source,
-            synced
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-        """,
-        (
-            item_uuid,
-            zone_uuid,
-            product_uuid,
-            user_uuid,
-            scanned_code,
-            qty_counted,
-            batch_number,
-            expiry_date,
-            now,
-            source,
-        ),
-    )
+    enable_outbox=True,
 
-    # 2️⃣ Criar outbox
-    conn.execute(
-        """
-        INSERT INTO outbox_local (
-            table_name,
-            operation,
-            record_uuid,
-            payload
-        )
-        VALUES (?, ?, ?, ?)
-        """,
-        (
-            "inventory_items",
-            "insert",
-            item_uuid,
-            json.dumps(payload),
-        ),
-    )
+    ui_writable_cols=(
+        "zone_server_id",
+        "product_server_id",
+        "user_server_id",
+        "scanned_code",
+        "qty_counted",
+        "batch_number",
+        "expiry_date",
+        "is_new_product",
+        "device_timestamp",
+        "device_id",
+        "latitude",
+        "longitude",
+    ),
 
-    conn.commit()
-    conn.close()
+    server_upsert_cols=(
+        "uuid",
+        "server_id",
+        "zone_server_id",
+        "product_server_id",
+        "user_server_id",
+        "scanned_code",
+        "qty_counted",
+        "batch_number",
+        "expiry_date",
+        "is_new_product",
+        "device_timestamp",
+        "server_timestamp",
+        "device_id",
+        "latitude",
+        "longitude",
+        "deleted_at",
+        "synced",
+        "synced_at",
+        "source",
+    ),
+)
 
-    return item_uuid
+
+class InventoryItemsRepo(BaseRepo):
+    def __init__(self, conn=None):
+        super().__init__(_INVENTORY_ITEMS_CFG, conn)
