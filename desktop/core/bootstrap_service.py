@@ -1,49 +1,28 @@
 # desktop/core/bootstrap_service.py
 
-from datetime import datetime, timezone
-
-from desktop.core.http_client import get
-from desktop.config.settings import SYNC_BOOTSTRAP_ENDPOINT
-from desktop.data.repositories import (
-    app_meta_repo,
-    companies_repo,
-    users_repo,
-    locations_repo,
-    product_categories_repo,
-    products_repo,
-    product_barcodes_repo,
-    inventory_events_repo,
-    inventory_event_targets_repo,
-    zones_repo,
-)
+from desktop.core.sync_pull_service import SyncPullService
+from desktop.core.session_service import SessionService
+from desktop.data.repositories.app_meta_repo import set_meta
+from desktop.data.db.connection import get_connection
 
 
-def run_bootstrap(jwt_token: str) -> bool:
+class BootstrapService:
     """
-    Executa o bootstrap real do Desktop:
-    - chama o DV Server
-    - popula todas as tabelas locais
-    - grava metadados de estado
+    Responsável por inicializar o cache local após login ou troca de empresa.
     """
 
-    payload = get(SYNC_BOOTSTRAP_ENDPOINT, jwt_token)
+    def run(self) -> None:
+        conn = get_connection()
 
-    # --- Persistência local (ordem importa) ---
-    companies_repo.replace_all([payload["company"]])
-    users_repo.replace_all(payload.get("users", []))
-    locations_repo.replace_all(payload.get("locations", []))
-    product_categories_repo.replace_all(payload.get("product_categories", []))
-    products_repo.replace.all(payload.get("products", []))
-    product_barcodes_repo.replace_all(payload.get("product_barcodes", []))
-    inventory_events_repo.replace_all(payload.get("inventory_events", []))
-    inventory_event_targets_repo.replace_all(payload.get("inventory_event_targets", []))
-    zones_repo.replace_all(payload.get("zones", []))
+        company_server_id = SessionService.get_company_server_id()
+        if not company_server_id:
+            raise RuntimeError("company_server_id não definido para bootstrap")
 
-    # --- Metadados ---
-    app_meta_repo.set_meta("bootstrap_done", "true")
-    app_meta_repo.set_meta(
-        "last_full_sync_at",
-        datetime.now(timezone.utc).isoformat(),
-    )
+        # Bootstrap = pull FULL (sem since)
+        # Reset do marcador de pull incremental
+        set_meta("last_pull_at", "", conn)
 
-    return True
+        SyncPullService().run()
+
+        # Marcar bootstrap concluído
+        set_meta("bootstrap_done", "1", conn)

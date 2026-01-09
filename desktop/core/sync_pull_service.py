@@ -1,42 +1,41 @@
 # desktop/core/sync_pull_service.py
-
+"""
+Responsabilities:
+- Orchestrating sync pull
+- Getting last sync timestamp (last_pull_at)
+- Call endpoint and call apply pull payload
+- Update meta
+"""
 from desktop.core.http_client import get
-from desktop.config.settings import SYNC_PULL_ENDPOINT
+from desktop.core.sync.apply_pull_payload import apply_pull_payload
+from desktop.data.repositories.app_meta_repo import get_meta
 from desktop.data.db.connection import get_connection
-from desktop.data.repositories.products_repo import upsert_many
+from desktop.core.session_service import SessionService
 
 
-def pull_once(jwt_token: str) -> int:
-    conn = get_connection()
-    cur = conn.cursor()
+class SyncPullService:
+    """
+    Orquestra o sync pull incremental.
+    Responsabilidade única: buscar dados do servidor e delegar aplicação.
+    """
 
-    cur.execute(
-        "SELECT value FROM app_meta WHERE key = 'last_pull_at'"
-    )
-    row = cur.fetchone()
+    def run(self) -> None:
+        conn = get_connection()
 
-    since = row[0] if row else "1970-01-01T00:00:00Z"
+        jwt_token = SessionService.get_jwt_token()
+        if not jwt_token:
+            raise RuntimeError("JWT token não disponível para sync pull")
 
-    payload = get(
-        SYNC_PULL_ENDPOINT,
-        jwt_token,
-        params={"since": since},
-    )
+        since = get_meta("last_pull_at", conn)
 
-    total = 0
+        params = {}
+        if since:
+            params["since"] = since
 
-    products = payload.get("products", [])
-    if products:
-        upsert_many(products)
-        total += len(products)
+        payload = get(
+            "/v1/sync/pull",
+            jwt_token=jwt_token,
+            params=params,
+        )
 
-    cur.execute(
-        """
-        INSERT OR REPLACE INTO app_meta (key, value)
-        VALUES ('last_pull_at', ?)
-        """,
-        (payload["server_ts"],),
-    )
-
-    conn.commit()
-    return total
+        apply_pull_payload(payload, conn)

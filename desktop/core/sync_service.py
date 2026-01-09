@@ -1,68 +1,79 @@
 # desktop/core/sync_service.py
+"""
+Master synchronization orchestrator.
+Responsibilities:
+- Validate context (JWT / company)
+- Decide between bootstrap and incremental sync
+- Execute push and pull in the correct order
+- Return results to logs/UI
+"""
 
-from typing import Tuple, Dict, Any, List
-import json
+from dataclasses import dataclass
+from typing import Optional
 
-from desktop.core.http_client import post
-from desktop.config.settings import SYNC_PUSH_ENDPOINT
-from desktop.data.outbox.outbox_repo import (
-    get_pending,
-    mark_success,
-    mark_failed,
-)
+from desktop.core.session_service import SessionService
+from desktop.data.repositories.app_meta_repo import get_meta
+from desktop.data.db.connection import get_connection
+
+from desktop.core.sync_pull_service import SyncPullService
+from desktop.core.sync_push_service import SyncPushService
+from desktop.core.bootstrap_service import BootstrapService
 
 
-def push_outbox_once(jwt_token: str) -> Tuple[int, int]:
-    """
-    Envia um lote de registos da outbox_local para o DV Server.
+@dataclass
+class SyncResult:
+    did_bootstrap: bool
+    push_accepted: int
+    push_failed: int
+    pulled: bool
+    error: Optional[str] = None
 
-    - Lê até N registos pendentes (attempts < 5)
-    - Monta o payload no formato esperado pelo /v1/sync/push
-    - Chama o endpoint
-    - Remove os 'accepted'
-    - Marca como falhados os 'failed'
 
-    Retorna (qtd_accepted, qtd_failed).
-    """
+class SyncService:
 
-    pending = get_pending(limit=100)
+    def run(self) -> SyncResult:
+        try:
+            conn = get_connection()
 
-    if not pending:
-        return 0, 0
+            jwt_token = SessionService.get_jwt_token()
+            if not jwt_token:
+                raise RuntimeError("JWT token não disponível para sincronização")
 
-    # Mapa record_uuid -> outbox_id
-    id_by_uuid: Dict[str, int] = {
-        row["record_uuid"]: row["id"] for row in pending
-    }
+            company_server_id = SessionService.get_company_server_id()
+            if not company_server_id:
+                raise RuntimeError("company_server_id não definido na sessão")
 
-    items: List[Dict[str, Any]] = []
-    for row in pending:
-        items.append(
-            {
-                "table_name": row["table_name"],
-                "operation": row["operation"],
-                "record_uuid": row["record_uuid"],
-                "payload": json.loads(row["payload"]),
-            }
-        )
+            bootstrap_done = get_meta("bootstrap_done", conn)
+            if bootstrap_done != "1":
+                BootstrapService().run()
+                return SyncResult(
+                    did_bootstrap=True,
+                    push_accepted=0,
+                    push_failed=0,
+                    pulled=True,
+                    error=None,
+                )
 
-    payload = {"items": items}
+            # Ordem recomendada (padrão offline-first):
+            # 1) push (publica mudanças locais)
+            # 2) pull (traz consolidação do servidor)
+            push_accepted, push_failed = SyncPushService().run()
 
-    # Chamada ao DV Server
-    resp = post(SYNC_PUSH_ENDPOINT, jwt_token, payload)
+            SyncPullService().run()
 
-    accepted_uuids = resp.get("accepted", []) or []
-    failed_uuids = resp.get("failed", []) or []
+            return SyncResult(
+                did_bootstrap=False,
+                push_accepted=push_accepted,
+                push_failed=push_failed,
+                pulled=True,
+                error=None,
+            )
 
-    # Remover da outbox os aceites
-    success_ids = [id_by_uuid[u] for u in accepted_uuids if u in id_by_uuid]
-    if success_ids:
-        mark_success(success_ids)
-
-    # Atualizar tentativa + erro genérico nos falhados
-    for u in failed_uuids:
-        outbox_id = id_by_uuid.get(u)
-        if outbox_id is not None:
-            mark_failed(outbox_id, "Rejected by DV Server")
-
-    return len(accepted_uuids), len(failed_uuids)
+        except Exception as e:
+            return SyncResult(
+                did_bootstrap=False,
+                push_accepted=0,
+                push_failed=0,
+                pulled=False,
+                error=str(e),
+            )
