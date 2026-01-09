@@ -1,0 +1,753 @@
+-------------------------------------------------------------------
+-- SUPABASE SCHEMA FINAL (V8 - REBUILD COMPLETO)
+-- Estrutura física + RLS + helpers + triggers
+-------------------------------------------------------------------
+
+-------------------------------------------------------------------
+-- 0) EXTENSÕES E TIPOS ENUM
+-------------------------------------------------------------------
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON t.typnamespace = n.oid
+    WHERE t.typname = 'user_role' AND n.nspname = 'public'
+  ) THEN
+    CREATE TYPE public.user_role AS ENUM ('admin', 'manager', 'coordinator', 'auditor', 'counter');
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON t.typnamespace = n.oid
+    WHERE t.typname = 'event_status' AND n.nspname = 'public'
+  ) THEN
+    CREATE TYPE public.event_status AS ENUM ('planned', 'open', 'counting', 'closed', 'finalized');
+  END IF;
+END
+$$;
+
+
+-------------------------------------------------------------------
+-- 1) TABELAS MESTRE (COMPANIES, USERS, LOCATIONS, CATEGORIES, PRODUCTS)
+-------------------------------------------------------------------
+
+CREATE TABLE public.companies (
+  id           BIGSERIAL PRIMARY KEY,
+  uuid         UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  name         VARCHAR(255) NOT NULL,
+  vat_number   VARCHAR(64) NOT NULL UNIQUE,
+  country_code CHAR(2),
+  address      TEXT,
+
+  is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.users (
+  id              BIGSERIAL PRIMARY KEY,
+  uuid            UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  company_id      BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+  supabase_auth_id UUID UNIQUE,
+
+  email           VARCHAR(255) NOT NULL UNIQUE,
+  username        VARCHAR(100),
+  name            VARCHAR(255) NOT NULL,
+  role            public.user_role NOT NULL DEFAULT 'auditor',
+
+  is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+
+  last_sign_in_at TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX idx_users_company_username ON public.users(company_id, username);
+CREATE INDEX idx_users_company           ON public.users(company_id);
+CREATE INDEX idx_users_supabase_auth_id  ON public.users(supabase_auth_id);
+
+CREATE TABLE public.locations (
+  id          BIGSERIAL PRIMARY KEY,
+  uuid        UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  company_id  BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+
+  code        VARCHAR(64) NOT NULL,
+  name        VARCHAR(255) NOT NULL,
+  address     TEXT,
+
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX idx_locations_company_code ON public.locations(company_id, code);
+CREATE INDEX        idx_locations_company      ON public.locations(company_id);
+
+-- categorias de produto
+CREATE TABLE public.product_categories (
+  id          BIGSERIAL PRIMARY KEY,
+  uuid        UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  company_id  BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+
+  code        VARCHAR(50) NOT NULL,
+  name        VARCHAR(255) NOT NULL,
+  description TEXT,
+
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX idx_product_categories_company_code ON public.product_categories(company_id, code);
+CREATE INDEX        idx_product_categories_company      ON public.product_categories(company_id);
+
+CREATE TABLE public.products (
+  id                     BIGSERIAL PRIMARY KEY,
+  uuid                   UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  company_id             BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+  category_id            BIGINT REFERENCES public.product_categories(id) ON DELETE SET NULL,
+
+  sku                    VARCHAR(100) NOT NULL,
+  name                   VARCHAR(255) NOT NULL,
+  description            TEXT,
+
+  uom_base               VARCHAR(50) NOT NULL,
+  uom_inventory          VARCHAR(50) NOT NULL,
+  conversion_factor      NUMERIC(18,6) NOT NULL DEFAULT 1,
+
+  system_qty             NUMERIC(18,4) NOT NULL DEFAULT 0,
+  cost_price             NUMERIC(18,4),
+  is_sensitive           BOOLEAN NOT NULL DEFAULT FALSE,
+  serial_number_enabled  BOOLEAN NOT NULL DEFAULT FALSE,
+
+  is_active              BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX idx_products_company_sku ON public.products(company_id, sku);
+CREATE INDEX        idx_products_company      ON public.products(company_id);
+CREATE INDEX        idx_products_sku          ON public.products(sku);
+
+CREATE TABLE public.product_barcodes (
+  id          BIGSERIAL PRIMARY KEY,
+  uuid        UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  company_id  BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+  product_id  BIGINT NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+
+  barcode     VARCHAR(255) NOT NULL,
+  description TEXT,
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX idx_barcodes_company_barcode ON public.product_barcodes(company_id, barcode);
+CREATE INDEX        idx_barcodes_product         ON public.product_barcodes(product_id);
+
+
+-------------------------------------------------------------------
+-- 2) INVENTORY EVENTS, TARGETS, ZONES
+-------------------------------------------------------------------
+
+CREATE TABLE public.inventory_events (
+  id                   BIGSERIAL PRIMARY KEY,
+  uuid                 UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  company_id           BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+  location_id          BIGINT NOT NULL REFERENCES public.locations(id) ON DELETE RESTRICT,
+
+  title                VARCHAR(255) NOT NULL,
+  event_type           VARCHAR(50) NOT NULL,
+  status               public.event_status NOT NULL DEFAULT 'planned',
+
+  required_counts      INTEGER NOT NULL DEFAULT 1,
+  required_audits      INTEGER,
+  tolerance_percent    NUMERIC(10,4),
+  tolerance_absolute   NUMERIC(18,4),
+
+  primary_finished_at  TIMESTAMPTZ,
+  audit_finished_at    TIMESTAMPTZ,
+
+  is_active            BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_inventory_events_company   ON public.inventory_events(company_id);
+CREATE INDEX idx_inventory_events_location  ON public.inventory_events(location_id);
+
+CREATE TABLE public.inventory_event_targets (
+  id          BIGSERIAL PRIMARY KEY,
+  uuid        UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  company_id  BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+  event_id    BIGINT NOT NULL REFERENCES public.inventory_events(id) ON DELETE CASCADE,
+  product_id  BIGINT NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+
+  expected_qty NUMERIC(18,4) NOT NULL DEFAULT 0,
+  is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX idx_targets_event_product ON public.inventory_event_targets(event_id, product_id);
+CREATE INDEX        idx_targets_company       ON public.inventory_event_targets(company_id);
+
+CREATE TABLE public.zones (
+  id           BIGSERIAL PRIMARY KEY,
+  uuid         UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  event_id     BIGINT NOT NULL REFERENCES public.inventory_events(id) ON DELETE CASCADE,
+
+  name         VARCHAR(255) NOT NULL,
+  description  TEXT,
+  count_status VARCHAR(50) NOT NULL DEFAULT 'not_started',
+  lock_status  VARCHAR(50) NOT NULL DEFAULT 'unlocked',
+  is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_zones_event_id ON public.zones(event_id);
+
+
+-------------------------------------------------------------------
+-- 3) INVENTORY ITEMS + PROGRESSO POR USUÁRIO
+-------------------------------------------------------------------
+
+CREATE TABLE public.inventory_items (
+  id                  BIGSERIAL PRIMARY KEY,
+  uuid                UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  zone_id             BIGINT NOT NULL REFERENCES public.zones(id) ON DELETE CASCADE,
+  user_id             BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+  product_id          BIGINT REFERENCES public.products(id) ON DELETE SET NULL,
+
+  scanned_code        VARCHAR(255),
+  qty_counted         NUMERIC(18,4) NOT NULL DEFAULT 0,
+  batch_number        VARCHAR(100),
+  expiry_date         DATE,
+  is_new_product      BOOLEAN NOT NULL DEFAULT FALSE,
+
+  device_timestamp    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  server_timestamp    TIMESTAMPTZ,
+
+  device_id           VARCHAR(100),
+  latitude            NUMERIC(9,6),
+  longitude           NUMERIC(9,6),
+
+  created_by_user_id  BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+  source              VARCHAR(50) NOT NULL,
+  audit_meta          JSONB,
+
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_items_zone        ON public.inventory_items(zone_id);
+CREATE INDEX idx_items_product     ON public.inventory_items(product_id);
+CREATE INDEX idx_items_user        ON public.inventory_items(user_id);
+CREATE INDEX idx_items_scanned_code ON public.inventory_items(scanned_code);
+
+CREATE TABLE public.zone_user_progress (
+  id            BIGSERIAL PRIMARY KEY,
+  uuid          UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  zone_id       BIGINT NOT NULL REFERENCES public.zones(id) ON DELETE CASCADE,
+  user_id       BIGINT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+
+  count_type    VARCHAR(50) NOT NULL,   -- primary / audit
+  started_at    TIMESTAMPTZ NOT NULL,
+  finished_at   TIMESTAMPTZ,
+  is_finished   BOOLEAN NOT NULL DEFAULT FALSE,
+
+  items_counted INTEGER NOT NULL DEFAULT 0,
+  qty_total     NUMERIC(18,4) NOT NULL DEFAULT 0,
+
+  device_id     VARCHAR(100),
+
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_zone_user_progress_zone  ON public.zone_user_progress(zone_id);
+CREATE INDEX idx_zone_user_progress_user  ON public.zone_user_progress(user_id);
+
+
+-------------------------------------------------------------------
+-- 4) DEVICES
+-------------------------------------------------------------------
+
+CREATE TABLE public.devices (
+  id           BIGSERIAL PRIMARY KEY,
+  uuid         UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  device_uuid  VARCHAR(255) NOT NULL,
+  user_id      BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+
+  os           VARCHAR(100),
+  app_version  VARCHAR(50),
+
+  last_sync_at TIMESTAMPTZ,
+  is_blocked   BOOLEAN NOT NULL DEFAULT FALSE,
+  metadata     JSONB,
+
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX idx_devices_device_uuid ON public.devices(device_uuid);
+CREATE INDEX        idx_devices_user_id     ON public.devices(user_id);
+
+
+-------------------------------------------------------------------
+-- 5) DIVERGÊNCIAS, MOTIVOS, AUDITORIA, WORKFLOW
+-------------------------------------------------------------------
+
+CREATE TABLE public.divergence_reason_types (
+  id                     BIGSERIAL PRIMARY KEY,
+  uuid                   UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  company_id             BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+
+  code                   VARCHAR(50) NOT NULL,
+  description            VARCHAR(255) NOT NULL,
+  requires_documentation BOOLEAN NOT NULL DEFAULT FALSE,
+
+  is_active              BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX idx_divergence_reason_company_code ON public.divergence_reason_types(company_id, code);
+CREATE INDEX        idx_divergence_reason_company      ON public.divergence_reason_types(company_id);
+
+CREATE TABLE public.inventory_divergences (
+  id                    BIGSERIAL PRIMARY KEY,
+  uuid                  UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  event_id              BIGINT NOT NULL REFERENCES public.inventory_events(id) ON DELETE CASCADE,
+  zone_id               BIGINT REFERENCES public.zones(id) ON DELETE SET NULL,
+  product_id            BIGINT NOT NULL REFERENCES public.products(id) ON DELETE RESTRICT,
+
+  qty_primary           NUMERIC(18,4),
+  qty_audit             NUMERIC(18,4),
+  difference            NUMERIC(18,4),
+
+  resolution            VARCHAR(100),
+  divergence_reason     VARCHAR(255),
+  resolved_by_user_id   BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+  resolved_at           TIMESTAMPTZ,
+
+  metadata              JSONB,
+
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_inventory_divergences_event    ON public.inventory_divergences(event_id);
+CREATE INDEX idx_inventory_divergences_product  ON public.inventory_divergences(product_id);
+
+CREATE TABLE public.inventory_item_events (
+  id                BIGSERIAL PRIMARY KEY,
+  uuid              UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  inventory_item_id BIGINT NOT NULL REFERENCES public.inventory_items(id) ON DELETE CASCADE,
+
+  action            VARCHAR(50) NOT NULL,   -- created/updated/deleted/...
+  previous_qty      NUMERIC(18,4),
+  new_qty           NUMERIC(18,4),
+
+  user_id           BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+  device_id         VARCHAR(100),
+
+  timestamp         TIMESTAMPTZ NOT NULL,
+  notes             TEXT
+);
+CREATE INDEX idx_item_events_item   ON public.inventory_item_events(inventory_item_id);
+CREATE INDEX idx_item_events_user   ON public.inventory_item_events(user_id);
+
+CREATE TABLE public.inventory_item_revisions (
+  id                   BIGSERIAL PRIMARY KEY,
+  uuid                 UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  inventory_item_id    BIGINT NOT NULL REFERENCES public.inventory_items(id) ON DELETE CASCADE,
+  revision_number      INTEGER NOT NULL,
+
+  changed_by_user_id   BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+  change_ts            TIMESTAMPTZ NOT NULL,
+
+  payload              JSONB NOT NULL
+);
+CREATE INDEX idx_item_revisions_item ON public.inventory_item_revisions(inventory_item_id);
+
+CREATE TABLE public.workflow_logs (
+  id           BIGSERIAL PRIMARY KEY,
+  uuid         UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  entity       VARCHAR(100) NOT NULL,
+  entity_id    BIGINT NOT NULL,
+  from_state   VARCHAR(50),
+  to_state     VARCHAR(50),
+  triggered_by BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+  timestamp    TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX idx_workflow_logs_entity ON public.workflow_logs(entity, entity_id);
+
+
+-------------------------------------------------------------------
+-- 6) TRIGGER PARA updated_at EM TODAS AS TABELAS COM ESSE CAMPO
+-------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$;
+
+DO $$
+DECLARE
+  r RECORD;
+  trg TEXT;
+BEGIN
+  FOR r IN
+    SELECT table_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND column_name = 'updated_at'
+  LOOP
+    trg := 'trg_' || r.table_name || '_updated_at';
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', trg, r.table_name);
+    EXECUTE format(
+      'CREATE TRIGGER %I BEFORE UPDATE ON public.%I FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column()',
+      trg, r.table_name
+    );
+  END LOOP;
+END$$;
+
+
+-------------------------------------------------------------------
+-- 7) FUNÇÕES HELPER RLS (SECURITY DEFINER)
+-------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.get_auth_company_id()
+RETURNS BIGINT
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT company_id
+  FROM public.users
+  WHERE supabase_auth_id = auth.uid()
+  LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_auth_user_role()
+RETURNS public.user_role
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT role
+  FROM public.users
+  WHERE supabase_auth_id = auth.uid()
+  LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_auth_user_pk_id()
+RETURNS BIGINT
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT id
+  FROM public.users
+  WHERE supabase_auth_id = auth.uid()
+  LIMIT 1;
+$$;
+
+-- Revogar EXECUTE para anon e authenticated (evitar invocação direta)
+REVOKE EXECUTE ON FUNCTION public.get_auth_company_id()  FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_auth_user_role()   FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_auth_user_pk_id()  FROM anon, authenticated;
+
+
+-------------------------------------------------------------------
+-- 8) HABILITAR RLS NAS TABELAS ACESSADAS PELO CLIENTE
+-------------------------------------------------------------------
+
+ALTER TABLE public.companies               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users                   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.locations               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_categories      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_barcodes        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory_events        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory_event_targets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.zones                   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory_items         ENABLE ROW LEVEL SECURITY;
+
+
+-------------------------------------------------------------------
+-- 9) RLS POLICIES (MULTI-TENANT POR EMPRESA E ROLE)
+-------------------------------------------------------------------
+
+-- 9.1 companies
+DROP POLICY IF EXISTS companies_read_by_company_id ON public.companies;
+CREATE POLICY companies_read_by_company_id
+ON public.companies
+FOR SELECT
+TO authenticated
+USING ( id = public.get_auth_company_id() );
+
+DROP POLICY IF EXISTS companies_admin_manage ON public.companies;
+CREATE POLICY companies_admin_manage
+ON public.companies
+FOR ALL
+TO authenticated
+USING (
+  id = public.get_auth_company_id()
+  AND public.get_auth_user_role() = 'admin'
+)
+WITH CHECK (
+  id = public.get_auth_company_id()
+  AND public.get_auth_user_role() = 'admin'
+);
+
+
+-- 9.2 users
+DROP POLICY IF EXISTS users_read_all_in_company ON public.users;
+CREATE POLICY users_read_all_in_company
+ON public.users
+FOR SELECT
+TO authenticated
+USING ( company_id = public.get_auth_company_id() );
+
+DROP POLICY IF EXISTS users_admin_manage ON public.users;
+CREATE POLICY users_admin_manage
+ON public.users
+FOR ALL
+TO authenticated
+USING (
+  company_id = public.get_auth_company_id()
+  AND public.get_auth_user_role() = 'admin'
+)
+WITH CHECK (
+  company_id = public.get_auth_company_id()
+  AND public.get_auth_user_role() = 'admin'
+);
+
+
+-- 9.3 locations
+DROP POLICY IF EXISTS locations_read_company ON public.locations;
+CREATE POLICY locations_read_company
+ON public.locations
+FOR SELECT
+TO authenticated
+USING ( company_id = public.get_auth_company_id() );
+
+DROP POLICY IF EXISTS locations_admin_manager_manage ON public.locations;
+CREATE POLICY locations_admin_manager_manage
+ON public.locations
+FOR ALL
+TO authenticated
+USING (
+  company_id = public.get_auth_company_id()
+  AND public.get_auth_user_role() IN ('admin','manager')
+)
+WITH CHECK (
+  company_id = public.get_auth_company_id()
+  AND public.get_auth_user_role() IN ('admin','manager')
+);
+
+
+-- 9.4 product_categories
+DROP POLICY IF EXISTS product_categories_read_company ON public.product_categories;
+CREATE POLICY product_categories_read_company
+ON public.product_categories
+FOR SELECT
+TO authenticated
+USING ( company_id = public.get_auth_company_id() );
+
+DROP POLICY IF EXISTS product_categories_admin_manager_manage ON public.product_categories;
+CREATE POLICY product_categories_admin_manager_manage
+ON public.product_categories
+FOR ALL
+TO authenticated
+USING (
+  company_id = public.get_auth_company_id()
+  AND public.get_auth_user_role() IN ('admin','manager')
+)
+WITH CHECK (
+  company_id = public.get_auth_company_id()
+  AND public.get_auth_user_role() IN ('admin','manager')
+);
+
+
+-- 9.5 products
+DROP POLICY IF EXISTS products_read_company ON public.products;
+CREATE POLICY products_read_company
+ON public.products
+FOR SELECT
+TO authenticated
+USING ( company_id = public.get_auth_company_id() );
+
+DROP POLICY IF EXISTS products_manager_auditor_manage ON public.products;
+CREATE POLICY products_manager_auditor_manage
+ON public.products
+FOR ALL
+TO authenticated
+USING (
+  company_id = public.get_auth_company_id()
+  AND public.get_auth_user_role() IN ('admin','manager','auditor')
+)
+WITH CHECK (
+  company_id = public.get_auth_company_id()
+  AND public.get_auth_user_role() IN ('admin','manager','auditor')
+);
+
+
+-- 9.6 product_barcodes
+DROP POLICY IF EXISTS barcodes_read_company ON public.product_barcodes;
+CREATE POLICY barcodes_read_company
+ON public.product_barcodes
+FOR SELECT
+TO authenticated
+USING ( company_id = public.get_auth_company_id() );
+
+DROP POLICY IF EXISTS barcodes_manager_auditor_manage ON public.product_barcodes;
+CREATE POLICY barcodes_manager_auditor_manage
+ON public.product_barcodes
+FOR ALL
+TO authenticated
+USING (
+  company_id = public.get_auth_company_id()
+  AND public.get_auth_user_role() IN ('admin','manager','auditor')
+)
+WITH CHECK (
+  company_id = public.get_auth_company_id()
+  AND public.get_auth_user_role() IN ('admin','manager','auditor')
+);
+
+
+-- 9.7 inventory_events
+DROP POLICY IF EXISTS events_management_roles ON public.inventory_events;
+CREATE POLICY events_management_roles
+ON public.inventory_events
+FOR ALL
+TO authenticated
+USING (
+  company_id = public.get_auth_company_id()
+  AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
+)
+WITH CHECK (
+  company_id = public.get_auth_company_id()
+  AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
+);
+
+
+-- 9.8 inventory_event_targets
+DROP POLICY IF EXISTS targets_management_roles ON public.inventory_event_targets;
+CREATE POLICY targets_management_roles
+ON public.inventory_event_targets
+FOR ALL
+TO authenticated
+USING (
+  company_id = public.get_auth_company_id()
+  AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
+)
+WITH CHECK (
+  company_id = public.get_auth_company_id()
+  AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
+);
+
+
+-- 9.9 zones
+DROP POLICY IF EXISTS zones_management_roles ON public.zones;
+CREATE POLICY zones_management_roles
+ON public.zones
+FOR ALL
+TO authenticated
+USING (
+  event_id IN (
+    SELECT id FROM public.inventory_events
+    WHERE company_id = public.get_auth_company_id()
+  )
+  AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
+)
+WITH CHECK (
+  event_id IN (
+    SELECT id FROM public.inventory_events
+    WHERE company_id = public.get_auth_company_id()
+  )
+  AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
+);
+
+
+-- 9.10 inventory_items
+DROP POLICY IF EXISTS items_insert_counter_auditor_check ON public.inventory_items;
+CREATE POLICY items_insert_counter_auditor_check
+ON public.inventory_items
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  user_id = public.get_auth_user_pk_id()
+  AND zone_id IN (
+    SELECT z.id
+    FROM public.zones z
+    JOIN public.inventory_events e ON e.id = z.event_id
+    WHERE e.company_id = public.get_auth_company_id()
+  )
+  AND public.get_auth_user_role() IN ('counter','auditor')
+);
+
+DROP POLICY IF EXISTS items_select_full_access_roles ON public.inventory_items;
+CREATE POLICY items_select_full_access_roles
+ON public.inventory_items
+FOR SELECT
+TO authenticated
+USING (
+  zone_id IN (
+    SELECT z.id
+    FROM public.zones z
+    JOIN public.inventory_events e ON e.id = z.event_id
+    WHERE e.company_id = public.get_auth_company_id()
+  )
+  AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
+);
+
+DROP POLICY IF EXISTS items_update_full_access_roles ON public.inventory_items;
+CREATE POLICY items_update_full_access_roles
+ON public.inventory_items
+FOR UPDATE
+TO authenticated
+USING (
+  zone_id IN (
+    SELECT z.id
+    FROM public.zones z
+    JOIN public.inventory_events e ON e.id = z.event_id
+    WHERE e.company_id = public.get_auth_company_id()
+  )
+  AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
+)
+WITH CHECK (
+  zone_id IN (
+    SELECT z.id
+    FROM public.zones z
+    JOIN public.inventory_events e ON e.id = z.event_id
+    WHERE e.company_id = public.get_auth_company_id()
+  )
+  AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
+);
+
+
+-------------------------------------------------------------------
+-- FIM DO SCHEMA V8
+-------------------------------------------------------------------

@@ -14,8 +14,13 @@ def _headers(jwt_token: str) -> dict:
     }
 
 
-def get(url: str, jwt_token: str, timeout: int = 10) -> dict:
-    resp = requests.get(url, headers=_headers(jwt_token), timeout=timeout)
+def get(url: str, jwt_token: str, params: dict | None = None, timeout: int = 10) -> dict:
+    resp = requests.get(
+        url,
+        headers=_headers(jwt_token),
+        params=params,
+        timeout=timeout,
+    )
 
     if resp.status_code != 200:
         raise DVServerError(

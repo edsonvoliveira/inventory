@@ -131,3 +131,17 @@ def finish_zone(
 
     conn.commit()
     conn.close()
+
+
+def mark_as_synced(*, uuid: str, server_id: int):
+    conn = get_connection()
+    conn.execute(
+        """
+        UPDATE zone_user_progress_local
+        SET server_id = ?, synced = 1, synced_at = ?
+        WHERE uuid = ?
+        """,
+        (server_id, datetime.now(timezone.utc).isoformat(), uuid),
+    )
+    conn.commit()
+    conn.close()

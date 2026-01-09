@@ -1,4 +1,5 @@
 # desktop/config/settings.py
+
 import os
 
 # Define the base directory for the desktop application
@@ -15,6 +16,7 @@ API_V1_PREFIX = "/v1"
 
 SYNC_BOOTSTRAP_ENDPOINT = f"{DV_SERVER_BASE_URL}{API_V1_PREFIX}/sync/bootstrap"
 SYNC_PUSH_ENDPOINT = f"{DV_SERVER_BASE_URL}{API_V1_PREFIX}/sync/push"
+SYNC_PULL_ENDPOINT = "http://127.0.0.1:8000/v1/sync/pull"
 
 # -----------------------------
 # Logging settings

@@ -30,7 +30,7 @@ def replace_all(rows: List[Dict[str, Any]]):
             """,
             (
                 r["uuid"],
-                r["server_id"],          # id do location no Postgres
+                r["id"],          # id do location no Postgres
                 r.get("code"),
                 r["name"],
                 1 if r.get("is_active", True) else 0,

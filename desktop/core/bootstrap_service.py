@@ -33,7 +33,7 @@ def run_bootstrap(jwt_token: str) -> bool:
     users_repo.replace_all(payload.get("users", []))
     locations_repo.replace_all(payload.get("locations", []))
     product_categories_repo.replace_all(payload.get("product_categories", []))
-    products_repo.replace_all(payload.get("products", []))
+    products_repo.replace.all(payload.get("products", []))
     product_barcodes_repo.replace_all(payload.get("product_barcodes", []))
     inventory_events_repo.replace_all(payload.get("inventory_events", []))
     inventory_event_targets_repo.replace_all(payload.get("inventory_event_targets", []))

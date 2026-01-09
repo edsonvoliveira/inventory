@@ -1,5 +1,10 @@
 # desktop/data/repositories/inventory_events_repo.py
-
+"""
+Responsabilidade
+- Inserir eventos de inventário
+- Apenas estrutura do evento
+- Zonas, targets e itens vêm depois
+"""
 from desktop.data.db.connection import get_connection
 from typing import List, Dict, Any
 
@@ -30,7 +35,7 @@ def replace_all(rows: List[Dict[str, Any]]):
             """,
             (
                 r["uuid"],
-                r["server_id"],
+                r["id"],
                 r["title"],
                 r["status"],
                 r.get("event_type"),

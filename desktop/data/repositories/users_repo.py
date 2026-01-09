@@ -34,7 +34,7 @@ def replace_all(rows: List[Dict[str, Any]]):
             """,
             (
                 r["uuid"],
-                r["server_id"],       # id do user no Postgres
+                r["id"],       # id do user no Postgres
                 r["email"],
                 r.get("name"),
                 r["role"],

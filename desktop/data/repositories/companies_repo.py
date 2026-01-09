@@ -22,7 +22,7 @@ def replace_all(rows: list[dict]) -> None:
             """,
             (
                 r["uuid"],
-                r["server_id"],
+                r["id"],
                 r["name"],
                 r.get("vat_number"),
                 1 if r.get("is_active", True) else 0,

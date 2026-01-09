@@ -30,7 +30,7 @@ def replace_all(rows: List[Dict[str, Any]]):
             """,
             (
                 r["uuid"],
-                r["server_id"],           # id do barcode no Postgres
+                r["id"],           # id do barcode no Postgres
                 r["product_uuid"],        # vínculo correto com produto local
                 r["barcode"],
                 1 if r.get("is_active", True) else 0,

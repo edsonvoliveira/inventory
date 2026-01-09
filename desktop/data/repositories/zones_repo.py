@@ -31,7 +31,7 @@ def replace_all(rows: List[Dict[str, Any]]):
             """,
             (
                 r["uuid"],
-                r["server_id"],
+                r["id"],
                 r["event_uuid"],
                 r["name"],
                 r.get("count_status"),

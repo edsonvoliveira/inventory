@@ -1,9 +1,10 @@
 # data/db/connection.py
 
 """"
-Responsabilidade:
-    Definir onde fica o SQLite
-    Criar conexões
+Responsabilities:
+- Provide a connection to the local SQLite database
+- Use DB_PATH from settings
+- Encapsulate connection logic for reuse
 """
 
 import sqlite3

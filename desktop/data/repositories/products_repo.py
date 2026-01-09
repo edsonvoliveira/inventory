@@ -1,47 +1,65 @@
 # desktop/data/repositories/products_repo.py
+"""
+Responsabilities:
+- Repository for products entity
+- Inherits basic CRUD, outbox, and sync from BaseRepo
+- Configured via RepoConfig for products-specific behavior
+"""
 
-from desktop.data.db.connection import get_connection
-from typing import List, Dict, Any
+from desktop.data.repositories.base_repo import BaseRepo, RepoConfig
 
+_PRODUCTS_CFG = RepoConfig(
+    table="products_local",
+    entity_name="products",
 
-def replace_all(rows: List[Dict[str, Any]]):
-    """
-    Substitui todos os produtos locais pelos dados vindos do servidor.
-    Usado em:
-    - bootstrap inicial
-    - full resync controlado
-    """
-    conn = get_connection()
+    synced_col="synced",
+    synced_at_col="synced_at",
+    updated_at_col="updated_at",
+    deleted_at_col="deleted_at",
+    active_col="is_active",
+    source_col="source",
 
-    conn.execute("DELETE FROM products_local")
+    enable_outbox=True,
 
-    for r in rows:
-        conn.execute(
-            """
-            INSERT INTO products_local (
-                uuid,
-                server_id,
-                sku,
-                name,
-                uom_inventory,
-                system_qty,
-                serial_number_enabled,
-                is_active,
-                synced
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-            """,
-            (
-                r["uuid"],
-                r["server_id"],                       # id do produto no Postgres
-                r["sku"],
-                r["name"],
-                r.get("uom_inventory"),
-                r.get("system_qty", 0),
-                1 if r.get("serial_number_enabled", False) else 0,
-                1 if r.get("is_active", True) else 0,
-            ),
-        )
+    server_upsert_cols=(
+        "uuid",
+        "server_id",
+        "company_server_id",
+        "category_server_id",
+        "sku",
+        "name",
+        "description",
+        "uom_base",
+        "uom_inventory",
+        "conversion_factor",
+        "system_qty",
+        "cost_price",
+        "is_sensitive",
+        "serial_number_enabled",
+        "is_active",
+        "created_at",
+        "updated_at",
+        "deleted_at",
+        "synced",
+        "synced_at",
+        "source",
+    ),
 
-    conn.commit()
-    conn.close()
+    ui_writable_cols=(
+        "category_server_id",
+        "sku",
+        "name",
+        "description",
+        "uom_base",
+        "uom_inventory",
+        "conversion_factor",
+        "cost_price",
+        "is_sensitive",
+        "serial_number_enabled",
+        "is_active",
+    ),
+)
+
+class ProductsRepo(BaseRepo):
+    def __init__(self, conn=None):
+        super().__init__(_PRODUCTS_CFG, conn)
