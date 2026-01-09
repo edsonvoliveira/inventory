@@ -1,63 +1,37 @@
 # desktop/core/sync_push_service.py
+"""
+Responsibilities:
+- Orchestrating sync pull
+- Getting last sync timestamp (last_pull_at)
+- Call endpoint and call apply pull payload
+- Update meta
+"""
 
-import json
-from typing import List, Dict
-
+from desktop.core.http_client import get
+from desktop.core.sync.apply_pull_payload import apply_pull_payload
+from desktop.data.repositories.app_meta_repo import get_meta
 from desktop.data.db.connection import get_connection
-from desktop.core.http_client import post
-from desktop.config.settings import SYNC_PUSH_ENDPOINT
+from desktop.core.session_service import SessionService
 
 
-def sync_push(jwt_token: str) -> bool:
-    """
-    Envia os registros pendentes da outbox_local para o DV Server.
-    """
+class SyncPullService:
+    def run(self) -> None:
+        conn = get_connection()
 
-    conn = get_connection()
+        since = get_meta("last_pull_at", conn)
 
-    rows = conn.execute(
-        """
-        SELECT id, table_name, operation, record_uuid, payload
-        FROM outbox_local
-        ORDER BY created_at ASC
-        """
-    ).fetchall()
+        params = {}
+        if since:
+            params["since"] = since
 
-    if not rows:
-        conn.close()
-        return True  # nada a sincronizar
+        jwt_token = SessionService.get_jwt_token()
+        if not jwt_token:
+            raise RuntimeError("JWT token não disponível para sync pull")
 
-    items: List[Dict] = []
-
-    for r in rows:
-        items.append(
-            {
-                "table_name": r["table_name"],
-                "operation": r["operation"],
-                "record_uuid": r["record_uuid"],
-                "payload": json.loads(r["payload"]),
-            }
+        payload = get(
+            "/v1/sync/pull",
+            jwt_token=jwt_token,
+            params=params,
         )
 
-    response = post(
-        SYNC_PUSH_ENDPOINT,
-        jwt_token,
-        json_body={"items": items},
-    )
-
-    accepted = response.get("accepted", [])
-
-    # Marcar como sincronizados
-    for uuid in accepted:
-        conn.execute(
-            """
-            DELETE FROM outbox_local
-            WHERE record_uuid = ?
-            """,
-            (uuid,),
-        )
-
-    conn.commit()
-    conn.close()
-
-    return True
+        apply_pull_payload(payload, conn)
