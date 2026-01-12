@@ -1,4 +1,4 @@
-# backend/app/services/sync/product_barcodes.py
+# backend/app/services/sync/handlers/product_barcodes.py
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -53,7 +53,7 @@ class ProductBarcodeSyncHandler(BaseSyncHandler):
 
         data = {
             "uuid": record_uuid,
-            "company_id": payload["company_id"],
+            "company_id": user.company_server_id,
             "product_id": payload["product_id"],  # server_id do produto
             "barcode": payload["barcode"],
             "description": payload.get("description"),

@@ -1,4 +1,4 @@
-# backend/app/services/sync/inventory_event_targets.py
+# backend/app/services/sync/handlers/inventory_event_targets.py
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional

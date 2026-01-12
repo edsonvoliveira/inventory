@@ -26,7 +26,7 @@ class PullExecutor:
 
         for entity, handler in SYNC_HANDLERS.items():
             data[entity] = handler.pull(
-                company_server_id=company_server_id,
+                company_id=company_server_id,
                 since=since,
             )
 

@@ -1,4 +1,4 @@
-# backend/app/services/sync/users.py
+# backend/app/services/sync/handlers/users.py
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional

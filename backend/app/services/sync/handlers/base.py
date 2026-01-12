@@ -1,4 +1,4 @@
-# backend/app/services/sync/base.py
+# backend/app/services/sync/handlers/base.py
 
 # classe base genérica para handlers de sync
 
@@ -60,7 +60,7 @@ class BaseSyncHandler(ABC):
     def pull(
         self,
         *,
-        company_server_id: int,
+        company_id: int,
         since: datetime | None,
     ) -> List[Dict[str, Any]]:
         """

@@ -1,4 +1,4 @@
-# backend/app/services/sync/product_categories.py
+# backend/app/services/sync/handlers/product_categories.py
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -53,7 +53,7 @@ class ProductCategorySyncHandler(BaseSyncHandler):
 
         data = {
             "uuid": record_uuid,
-            "company_id": payload["company_id"],
+            "company_id": user.company_server_id,
             "code": payload["code"],
             "name": payload["name"],
             "description": payload.get("description"),

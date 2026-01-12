@@ -1,4 +1,4 @@
-# backend/app/services/sync/locations.py
+# backend/app/services/sync/handlers/locations.py
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
