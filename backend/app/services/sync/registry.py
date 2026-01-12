@@ -3,17 +3,18 @@
 # mapa table_name → handler
 
 from typing import Dict
-from app.services.sync.base import BaseSyncHandler
-from app.services.sync.inventory_items import InventoryItemSyncHandler
-from app.services.sync.products import ProductSyncHandler
-from app.services.sync.product_categories import ProductCategorySyncHandler
-from app.services.sync.locations import LocationSyncHandler
-from app.services.sync.inventory_events import InventoryEventSyncHandler
-from app.services.sync.inventory_event_targets import InventoryEventTargetSyncHandler
-from app.services.sync.product_barcodes import ProductBarcodeSyncHandler
-from app.services.sync.zones import ZoneSyncHandler
-from app.services.sync.devices import DeviceSyncHandler
-from app.services.sync.users import UserSyncHandler
+from app.services.sync.handlers.base import BaseSyncHandler
+from app.services.sync.handlers.inventory_items import InventoryItemSyncHandler
+from app.services.sync.handlers.products import ProductSyncHandler
+from app.services.sync.handlers.product_categories import ProductCategorySyncHandler
+from app.services.sync.handlers.locations import LocationSyncHandler
+from app.services.sync.handlers.inventory_events import InventoryEventSyncHandler
+from app.services.sync.handlers.inventory_event_targets import InventoryEventTargetSyncHandler
+from app.services.sync.handlers.product_barcodes import ProductBarcodeSyncHandler
+from app.services.sync.handlers.zones import ZoneSyncHandler
+from app.services.sync.handlers.devices import DeviceSyncHandler
+from app.services.sync.handlers.users import UserSyncHandler
+from app.services.sync.handlers.zone_user_progress import ZoneUserProgressHandler
 
 SYNC_HANDLERS: Dict[str, BaseSyncHandler] = {
     "inventory_items": InventoryItemSyncHandler(),
@@ -26,4 +27,5 @@ SYNC_HANDLERS: Dict[str, BaseSyncHandler] = {
     "zones": ZoneSyncHandler(),
     "devices": DeviceSyncHandler(),
     "users": UserSyncHandler(),
+    "zone_user_progress": ZoneUserProgressHandler(),
 }

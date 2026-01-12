@@ -1,3 +1,5 @@
+-- inventory/supabase_schema.sql
+
 -- -------------------------------------------------------------------
 -- SCHEMA FINALIZADO (V7 - REVISADO)
 -- Melhores práticas: tipos schema-qualified, índices para RLS, NOT NULL para created_at,

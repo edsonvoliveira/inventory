@@ -1,24 +1,59 @@
 # backend/app/services/sync/users.py
 
-from typing import Dict, Any
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
+from app.services.sync.handlers.base import BaseSyncHandler
 from app.clients.supabase_client import get_supabase_service_client
 from app.core.security import CurrentUser
-from app.services.sync.base import BaseSyncHandler
 
 
 class UserSyncHandler(BaseSyncHandler):
     table_name = "users"
 
-    # ======================================================
-    # INSERT
-    # ======================================================
+    # ---------------------------
+    # PULL
+    # ---------------------------
+    def pull(
+        self,
+        *,
+        company_id: int,
+        since: Optional[datetime],
+    ) -> List[Dict[str, Any]]:
+
+        sb = get_supabase_service_client()
+
+        query = (
+            sb.table(self.table_name)
+            .select("*")
+            .eq("company_id", company_id)
+        )
+
+        if since is not None:
+            query = query.gte("updated_at", since.astimezone(timezone.utc).isoformat())
+
+        result = query.execute()
+        data = result.data or []
+
+        out: List[Dict[str, Any]] = []
+        for item in data:
+            if isinstance(item, dict):
+                out.append(item)
+            else:
+                # se vier algo inesperado, ignore ou levante erro
+                # raise TypeError(f"Unexpected item type: {type(item)}")
+                continue
+        return out
+
+    # ---------------------------
+    # PUSH (INSERT)
+    # ---------------------------
     def insert(self, payload: Dict[str, Any], record_uuid: str, user: CurrentUser) -> None:
         sb = get_supabase_service_client()
 
         data = {
             "uuid": record_uuid,
-            "company_id": user.company_id,  # 🔒 sempre do JWT
+            "company_id": payload["company_id"],  # 🔒 sempre do JWT
             "email": payload["email"],
             "username": payload.get("username"),
             "name": payload["name"],
@@ -29,9 +64,9 @@ class UserSyncHandler(BaseSyncHandler):
 
         sb.table("users").insert(data).execute()
 
-    # ======================================================
-    # UPDATE
-    # ======================================================
+    # ---------------------------
+    # PUSH (UPDATE)
+    # ---------------------------
     def update(self, payload: Dict[str, Any], record_uuid: str, user: CurrentUser) -> None:
         sb = get_supabase_service_client()
 
@@ -57,9 +92,9 @@ class UserSyncHandler(BaseSyncHandler):
             "uuid", record_uuid
         ).execute()
 
-    # ======================================================
-    # SOFT DELETE
-    # ======================================================
+    # ---------------------------
+    # PUSH (DELETE)
+    # ---------------------------
     def delete(self, payload: Dict[str, Any], record_uuid: str, user: CurrentUser) -> None:
         sb = get_supabase_service_client()
 

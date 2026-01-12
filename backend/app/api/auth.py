@@ -1,3 +1,5 @@
+#backend/app/api/auth.py
+
 from fastapi import APIRouter, Depends
 from app.core.security import get_current_user, CurrentUser
 

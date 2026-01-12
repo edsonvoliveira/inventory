@@ -17,7 +17,7 @@ class CurrentUser:
     auth_uid: str
     email: str | None
     db_user_id: int
-    company_id: int
+    company_server_id: int
 
 
 async def get_current_user(
@@ -89,11 +89,11 @@ async def get_current_user(
         )
 
     db_user_id = int(raw_user_id)
-    company_id = int(raw_company_id)
+    company_server_id = int(raw_company_id)
 
     return CurrentUser(
         auth_uid=auth_uid,
         email=email,
         db_user_id=db_user_id,
-        company_id=company_id,
+        company_server_id=company_server_id,
     )

@@ -4,7 +4,7 @@
 Responsabilities:
 - Handle switching company context in the Desktop application
 - Clear local data related to the previous company
-- Reinitialize data for the new company
+- Reinitialize data for the new company (executing bootstrap)
 """
 
 from desktop.core.session_service import SessionService
@@ -12,6 +12,8 @@ from desktop.core.bootstrap_service import BootstrapService
 from desktop.data.db.connection import get_connection
 from desktop.data.repositories.app_meta_repo import set_meta
 from desktop.data.repositories import (
+    companies_repo,
+    outbox_repo,
     products_repo,
     product_categories_repo,
     locations_repo,
@@ -22,16 +24,11 @@ from desktop.data.repositories import (
     product_barcodes_repo,
     users_repo,
     devices_repo,
+    zone_user_progress_repo,
 )
 
 
 class CompanySwitchService:
-    """
-    Troca o contexto de empresa no Desktop:
-    - Atualiza sessão
-    - Limpa cache local (hard delete administrativo)
-    - Executa bootstrap completo
-    """
 
     def switch_to(self, company_server_id: int) -> None:
         if not company_server_id:
@@ -51,6 +48,8 @@ class CompanySwitchService:
             set_meta("last_pull_at", "", conn)
 
             # 3) Hard delete de todos os dados locais
+            companies_repo.CompaniesRepo(conn).delete_all()
+            outbox_repo.OutboxRepo(conn).delete_all()
             products_repo.ProductsRepo(conn).delete_all()
             product_categories_repo.ProductCategoriesRepo(conn).delete_all()
             locations_repo.LocationsRepo(conn).delete_all()
@@ -61,6 +60,7 @@ class CompanySwitchService:
             product_barcodes_repo.ProductBarcodesRepo(conn).delete_all()
             users_repo.UsersRepo(conn).delete_all()
             devices_repo.DevicesRepo(conn).delete_all()
+            zone_user_progress_repo.ZoneUserProgressRepo(conn).delete_all()
 
             conn.commit()
         finally:

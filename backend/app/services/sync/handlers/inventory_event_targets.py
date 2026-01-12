@@ -1,14 +1,49 @@
 # backend/app/services/sync/inventory_event_targets.py
 
-from typing import Dict, Any
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
+from app.services.sync.handlers.base import BaseSyncHandler
 from app.clients.supabase_client import get_supabase_service_client
-from app.services.sync.base import BaseSyncHandler
 from app.core.security import CurrentUser
 
 
 class InventoryEventTargetSyncHandler(BaseSyncHandler):
     table_name = "inventory_event_targets"
+
+    # ---------------------------
+    # PULL
+    # ---------------------------
+    def pull(
+        self,
+        *,
+        company_id: int,
+        since: Optional[datetime],
+    ) -> List[Dict[str, Any]]:
+
+        sb = get_supabase_service_client()
+
+        query = (
+            sb.table(self.table_name)
+            .select("*")
+            .eq("company_id", company_id)
+        )
+
+        if since is not None:
+            query = query.gte("updated_at", since.astimezone(timezone.utc).isoformat())
+
+        result = query.execute()
+        data = result.data or []
+
+        out: List[Dict[str, Any]] = []
+        for item in data:
+            if isinstance(item, dict):
+                out.append(item)
+            else:
+                # se vier algo inesperado, ignore ou levante erro
+                # raise TypeError(f"Unexpected item type: {type(item)}")
+                continue
+        return out
 
     # --------------------------------------------------
     # Helpers (normalização para Pylance + robustez)
@@ -35,9 +70,9 @@ class InventoryEventTargetSyncHandler(BaseSyncHandler):
             raise RuntimeError(err_msg)
         return int(raw_id)
 
-    # --------------------------------------------------
-    # INSERT
-    # --------------------------------------------------
+    # ---------------------------
+    # PUSH (INSERT)
+    # ---------------------------
     def insert(self, payload: Dict[str, Any], record_uuid: str, user: CurrentUser) -> None:
         sb = get_supabase_service_client()
 
@@ -78,7 +113,7 @@ class InventoryEventTargetSyncHandler(BaseSyncHandler):
 
         data = {
             "uuid": record_uuid,
-            "company_id": user.company_id,
+            "company_id": payload["company_id"],
             "event_id": event_id,
             "product_id": product_id,
             "expected_qty": expected_qty,
@@ -87,9 +122,9 @@ class InventoryEventTargetSyncHandler(BaseSyncHandler):
 
         sb.table("inventory_event_targets").insert(data).execute()
 
-    # --------------------------------------------------
-    # UPDATE
-    # --------------------------------------------------
+    # ---------------------------
+    # PUSH (UPDATE)
+    # ---------------------------
     def update(self, payload: Dict[str, Any], record_uuid: str, user: CurrentUser) -> None:
         update_data: Dict[str, Any] = {}
 
@@ -105,9 +140,9 @@ class InventoryEventTargetSyncHandler(BaseSyncHandler):
         sb = get_supabase_service_client()
         sb.table("inventory_event_targets").update(update_data).eq("uuid", record_uuid).execute()
 
-    # --------------------------------------------------
-    # DELETE (soft)
-    # --------------------------------------------------
+    # ---------------------------
+    # PUSH (DELETE)
+    # ---------------------------
     def delete(self, payload: Dict[str, Any], record_uuid: str, user: CurrentUser) -> None:
         sb = get_supabase_service_client()
         sb.table("inventory_event_targets").update({"is_active": False}).eq("uuid", record_uuid).execute()

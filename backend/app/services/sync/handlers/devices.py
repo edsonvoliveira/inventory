@@ -1,14 +1,49 @@
 # backend/app/services/sync/devices.py
 
-from typing import Dict, Any
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
+from app.services.sync.handlers.base import BaseSyncHandler
 from app.clients.supabase_client import get_supabase_service_client
 from app.core.security import CurrentUser
-from app.services.sync.base import BaseSyncHandler
 
 
 class DeviceSyncHandler(BaseSyncHandler):
     table_name = "devices"
+
+    # ---------------------------
+    # PULL
+    # ---------------------------
+    def pull(
+        self,
+        *,
+        company_id: int,
+        since: Optional[datetime],
+    ) -> List[Dict[str, Any]]:
+
+        sb = get_supabase_service_client()
+
+        query = (
+            sb.table(self.table_name)
+            .select("*, users!inner(company_id)")
+            .eq("users.company_id", company_id)
+        )
+
+        if since is not None:
+            query = query.gte("updated_at", since.astimezone(timezone.utc).isoformat())
+
+        result = query.execute()
+        data = result.data or []
+
+        out: List[Dict[str, Any]] = []
+        for item in data:
+            if isinstance(item, dict):
+                out.append(item)
+            else:
+                # se vier algo inesperado, ignore ou levante erro
+                # raise TypeError(f"Unexpected item type: {type(item)}")
+                continue
+        return out
 
     # ======================================================
     # INSERT
