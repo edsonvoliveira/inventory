@@ -1,17 +1,19 @@
 -- inventory/supabase_schema.sql
 
--- -------------------------------------------------------------------
--- SCHEMA FINALIZADO (V7 - REVISADO)
--- Melhores práticas: tipos schema-qualified, índices para RLS, NOT NULL para created_at,
--- funções helper SECURITY DEFINER com search_path, triggers para updated_at.
--- -------------------------------------------------------------------
+-------------------------------------------------------------------
+-- SUPABASE SCHEMA FINAL (V9 - REBUILD COMPLETO)
+-- Versão V8 com adição de deleted_at nas tabelas solicitadas
+-------------------------------------------------------------------
 
--- 0) TIPOS ENUM (idempotente e schema-qualified)
+-------------------------------------------------------------------
+-- 0) EXTENSÕES E TIPOS ENUM
+-------------------------------------------------------------------
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1
-    FROM pg_type t
+    SELECT 1 FROM pg_type t
     JOIN pg_namespace n ON t.typnamespace = n.oid
     WHERE t.typname = 'user_role' AND n.nspname = 'public'
   ) THEN
@@ -19,8 +21,7 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1
-    FROM pg_type t
+    SELECT 1 FROM pg_type t
     JOIN pg_namespace n ON t.typnamespace = n.oid
     WHERE t.typname = 'event_status' AND n.nspname = 'public'
   ) THEN
@@ -30,161 +31,380 @@ END
 $$;
 
 
--- 1) MASTER DATA TABLES
+-------------------------------------------------------------------
+-- 1) TABELAS MESTRE (COMPANIES, USERS, LOCATIONS, CATEGORIES, PRODUCTS)
+-------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS public.companies (
-  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  name varchar(100) NOT NULL,
-  document varchar(15),
-  is_active boolean NOT NULL DEFAULT TRUE,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+CREATE TABLE public.companies (
+  id           BIGSERIAL PRIMARY KEY,
+  uuid         UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  name         VARCHAR(255) NOT NULL,
+  vat_number   VARCHAR(64) NOT NULL UNIQUE,
+  country_code CHAR(2),
+  address      TEXT,
+
+  is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.users (
-  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  company_id integer NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
-  supabase_auth_id uuid UNIQUE, -- pode ser NOT NULL se sempre mapeado a Auth
-  username varchar(100) UNIQUE NOT NULL,
-  password_hash varchar(255) NOT NULL,
-  name varchar(100),
-  role public.user_role NOT NULL DEFAULT 'auditor',
-  is_active boolean NOT NULL DEFAULT TRUE,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+CREATE TABLE public.users (
+  id              BIGSERIAL PRIMARY KEY,
+  uuid            UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  company_id      BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+  supabase_auth_id UUID UNIQUE,
+
+  email           VARCHAR(255) NOT NULL UNIQUE,
+  username        VARCHAR(100),
+  name            VARCHAR(255) NOT NULL,
+  role            public.user_role NOT NULL DEFAULT 'auditor',
+
+  is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+
+  last_sign_in_at TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_company_username ON public.users(company_id, username);
-CREATE INDEX IF NOT EXISTS idx_users_company ON public.users(company_id);
-CREATE INDEX IF NOT EXISTS idx_users_supabase_auth_id ON public.users(supabase_auth_id);
+CREATE UNIQUE INDEX idx_users_company_username ON public.users(company_id, username);
+CREATE INDEX idx_users_company           ON public.users(company_id);
+CREATE INDEX idx_users_supabase_auth_id  ON public.users(supabase_auth_id);
 
+CREATE TABLE public.locations (
+  id          BIGSERIAL PRIMARY KEY,
+  uuid        UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
 
-CREATE TABLE IF NOT EXISTS public.locations (
-  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  company_id integer NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
-  code varchar(15),
-  name varchar(50) NOT NULL,
-  address text,
-  is_active boolean NOT NULL DEFAULT TRUE,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  company_id  BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+
+  code        VARCHAR(64) NOT NULL,
+  name        VARCHAR(255) NOT NULL,
+  address     TEXT,
+
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_locations_company ON public.locations(company_id);
+CREATE UNIQUE INDEX idx_locations_company_code ON public.locations(company_id, code);
+CREATE INDEX        idx_locations_company      ON public.locations(company_id);
 
+-- categorias de produto
+CREATE TABLE public.product_categories (
+  id          BIGSERIAL PRIMARY KEY,
+  uuid        UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
 
-CREATE TABLE IF NOT EXISTS public.categories (
-  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  company_id integer NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
-  code varchar(20) NOT NULL,
-  name varchar(50) NOT NULL,
-  is_active boolean NOT NULL DEFAULT TRUE,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  company_id  BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+
+  code        VARCHAR(50) NOT NULL,
+  name        VARCHAR(255) NOT NULL,
+  description TEXT,
+
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_company_code ON public.categories(company_id, code);
-CREATE INDEX IF NOT EXISTS idx_categories_company ON public.categories(company_id);
+CREATE UNIQUE INDEX idx_product_categories_company_code ON public.product_categories(company_id, code);
+CREATE INDEX        idx_product_categories_company      ON public.product_categories(company_id);
 
+CREATE TABLE public.products (
+  id                     BIGSERIAL PRIMARY KEY,
+  uuid                   UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
 
-CREATE TABLE IF NOT EXISTS public.products (
-  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  company_id integer NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
-  category_id integer REFERENCES public.categories(id) ON DELETE SET NULL,
-  sku varchar(30) NOT NULL,
-  name varchar(80) NOT NULL,
-  description text,
-  uom_base varchar(5) NOT NULL DEFAULT 'UN',
-  uom_inventory varchar(5) NOT NULL DEFAULT 'UN',
-  conversion_factor numeric(12,2) NOT NULL DEFAULT 1.00,
-  default_location_info varchar(30),
-  system_qty numeric(12,2) NOT NULL DEFAULT 0.00,
-  cost_price numeric(12,2),
-  is_active boolean NOT NULL DEFAULT TRUE,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  company_id             BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+  category_id            BIGINT REFERENCES public.product_categories(id) ON DELETE SET NULL,
+
+  sku                    VARCHAR(100) NOT NULL,
+  name                   VARCHAR(255) NOT NULL,
+  description            TEXT,
+
+  uom_base               VARCHAR(50) NOT NULL,
+  uom_inventory          VARCHAR(50) NOT NULL,
+  conversion_factor      NUMERIC(18,6) NOT NULL DEFAULT 1,
+
+  system_qty             NUMERIC(18,4) NOT NULL DEFAULT 0,
+  cost_price             NUMERIC(18,4),
+  is_sensitive           BOOLEAN NOT NULL DEFAULT FALSE,
+  serial_number_enabled  BOOLEAN NOT NULL DEFAULT FALSE,
+
+  is_active              BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_products_company_sku ON public.products(company_id, sku);
-CREATE INDEX IF NOT EXISTS idx_products_company ON public.products(company_id);
-CREATE INDEX IF NOT EXISTS idx_products_sku ON public.products(sku);
+CREATE UNIQUE INDEX idx_products_company_sku ON public.products(company_id, sku);
+CREATE INDEX        idx_products_company      ON public.products(company_id);
+CREATE INDEX        idx_products_sku          ON public.products(sku);
 
+CREATE TABLE public.product_barcodes (
+  id          BIGSERIAL PRIMARY KEY,
+  uuid        UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
 
-CREATE TABLE IF NOT EXISTS public.product_barcodes (
-  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  company_id integer NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
-  product_id integer NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
-  barcode varchar(20) NOT NULL,
-  description varchar(50),
-  is_active boolean NOT NULL DEFAULT TRUE,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  company_id  BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+  product_id  BIGINT NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+
+  barcode     VARCHAR(255) NOT NULL,
+  description TEXT,
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_barcodes_company_barcode ON public.product_barcodes(company_id, barcode);
-CREATE INDEX IF NOT EXISTS idx_barcodes_product ON public.product_barcodes(product_id);
+CREATE UNIQUE INDEX idx_barcodes_company_barcode ON public.product_barcodes(company_id, barcode);
+CREATE INDEX        idx_barcodes_product         ON public.product_barcodes(product_id);
 
 
--- 2) INVENTORY EVENTS
+-------------------------------------------------------------------
+-- 2) INVENTORY EVENTS, TARGETS, ZONES
+-------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS public.inventory_events (
-  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  company_id integer NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
-  location_id integer NOT NULL REFERENCES public.locations(id) ON DELETE CASCADE,
-  title varchar(50) NOT NULL,
-  status public.event_status NOT NULL DEFAULT 'planned',
-  is_active boolean NOT NULL DEFAULT TRUE,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+CREATE TABLE public.inventory_events (
+  id                   BIGSERIAL PRIMARY KEY,
+  uuid                 UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  company_id           BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+  location_id          BIGINT NOT NULL REFERENCES public.locations(id) ON DELETE RESTRICT,
+
+  title                VARCHAR(255) NOT NULL,
+  event_type           VARCHAR(50) NOT NULL,
+  status               public.event_status NOT NULL DEFAULT 'planned',
+
+  required_counts      INTEGER NOT NULL DEFAULT 1,
+  required_audits      INTEGER,
+  tolerance_percent    NUMERIC(10,4),
+  tolerance_absolute   NUMERIC(18,4),
+
+  primary_finished_at  TIMESTAMPTZ,
+  audit_finished_at    TIMESTAMPTZ,
+
+  is_active            BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_inventory_events_company ON public.inventory_events(company_id);
-CREATE INDEX IF NOT EXISTS idx_inventory_events_location ON public.inventory_events(location_id);
+CREATE INDEX idx_inventory_events_company   ON public.inventory_events(company_id);
+CREATE INDEX idx_inventory_events_location  ON public.inventory_events(location_id);
 
+CREATE TABLE public.inventory_event_targets (
+  id          BIGSERIAL PRIMARY KEY,
+  uuid        UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
 
-CREATE TABLE IF NOT EXISTS public.inventory_event_targets (
-  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  company_id integer NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
-  event_id integer NOT NULL REFERENCES public.inventory_events(id) ON DELETE CASCADE,
-  product_id integer NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
-  expected_qty numeric(12,2) NOT NULL DEFAULT 0.00,
-  is_active boolean NOT NULL DEFAULT TRUE,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  company_id  BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+  event_id    BIGINT NOT NULL REFERENCES public.inventory_events(id) ON DELETE CASCADE,
+  product_id  BIGINT NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+
+  expected_qty NUMERIC(18,4) NOT NULL DEFAULT 0,
+  is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_targets_event_product ON public.inventory_event_targets(event_id, product_id);
-CREATE INDEX IF NOT EXISTS idx_targets_company ON public.inventory_event_targets(company_id);
+CREATE UNIQUE INDEX idx_targets_event_product ON public.inventory_event_targets(event_id, product_id);
+CREATE INDEX        idx_targets_company       ON public.inventory_event_targets(company_id);
 
+CREATE TABLE public.zones (
+  id           BIGSERIAL PRIMARY KEY,
+  uuid         UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
 
-CREATE TABLE IF NOT EXISTS public.zones (
-  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  event_id integer NOT NULL REFERENCES public.inventory_events(id) ON DELETE CASCADE,
-  name varchar(30) NOT NULL,
-  is_active boolean NOT NULL DEFAULT TRUE,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  event_id     BIGINT NOT NULL REFERENCES public.inventory_events(id) ON DELETE CASCADE,
+
+  name         VARCHAR(255) NOT NULL,
+  description  TEXT,
+  count_status VARCHAR(50) NOT NULL DEFAULT 'not_started',
+  lock_status  VARCHAR(50) NOT NULL DEFAULT 'unlocked',
+  is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_zones_event ON public.zones(event_id);
+CREATE INDEX idx_zones_event_id ON public.zones(event_id);
 
 
--- 3) INVENTORY ITEMS
+-------------------------------------------------------------------
+-- 3) INVENTORY ITEMS + PROGRESSO POR USUÁRIO
+-------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS public.inventory_items (
-  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  zone_id integer NOT NULL REFERENCES public.zones(id) ON DELETE CASCADE,
-  user_id integer REFERENCES public.users(id) ON DELETE SET NULL,
-  product_id integer REFERENCES public.products(id) ON DELETE SET NULL,
-  scanned_code varchar(50) NOT NULL,
-  qty_counted numeric(12,3) NOT NULL,
-  batch_number varchar(100),
-  expiry_date date,
-  is_new_product boolean NOT NULL DEFAULT FALSE,
-  notes text,
-  is_active boolean NOT NULL DEFAULT TRUE,
-  device_timestamp timestamptz NOT NULL,
-  server_timestamp timestamptz NOT NULL DEFAULT now()
+CREATE TABLE public.inventory_items (
+  id                  BIGSERIAL PRIMARY KEY,
+  uuid                UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  zone_id             BIGINT NOT NULL REFERENCES public.zones(id) ON DELETE CASCADE,
+  user_id             BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+  product_id          BIGINT REFERENCES public.products(id) ON DELETE SET NULL,
+
+  scanned_code        VARCHAR(255),
+  qty_counted         NUMERIC(18,4) NOT NULL DEFAULT 0,
+  batch_number        VARCHAR(100),
+  expiry_date         DATE,
+  is_new_product      BOOLEAN NOT NULL DEFAULT FALSE,
+
+  device_timestamp    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  server_timestamp    TIMESTAMPTZ,
+
+  device_id           VARCHAR(100),
+  latitude            NUMERIC(9,6),
+  longitude           NUMERIC(9,6),
+
+  created_by_user_id  BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+  source              VARCHAR(50) NOT NULL,
+  audit_meta          JSONB,
+
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_items_zone ON public.inventory_items(zone_id);
-CREATE INDEX IF NOT EXISTS idx_items_product ON public.inventory_items(product_id);
-CREATE INDEX IF NOT EXISTS idx_items_user ON public.inventory_items(user_id);
-CREATE INDEX IF NOT EXISTS idx_items_scanned_code ON public.inventory_items(scanned_code);
+CREATE INDEX idx_items_zone        ON public.inventory_items(zone_id);
+CREATE INDEX idx_items_product     ON public.inventory_items(product_id);
+CREATE INDEX idx_items_user        ON public.inventory_items(user_id);
+CREATE INDEX idx_items_scanned_code ON public.inventory_items(scanned_code);
+
+CREATE TABLE public.zone_user_progress (
+  id            BIGSERIAL PRIMARY KEY,
+  uuid          UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  zone_id       BIGINT NOT NULL REFERENCES public.zones(id) ON DELETE CASCADE,
+  user_id       BIGINT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+
+  count_type    VARCHAR(50) NOT NULL,   -- primary / audit
+  started_at    TIMESTAMPTZ NOT NULL,
+  finished_at   TIMESTAMPTZ,
+  is_finished   BOOLEAN NOT NULL DEFAULT FALSE,
+
+  items_counted INTEGER NOT NULL DEFAULT 0,
+  qty_total     NUMERIC(18,4) NOT NULL DEFAULT 0,
+
+  device_id     VARCHAR(100),
+
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_zone_user_progress_zone  ON public.zone_user_progress(zone_id);
+CREATE INDEX idx_zone_user_progress_user  ON public.zone_user_progress(user_id);
 
 
--- 4) TRIGGER TO AUTO-UPDATE updated_at
+-------------------------------------------------------------------
+-- 4) DEVICES
+-------------------------------------------------------------------
+
+CREATE TABLE public.devices (
+  id           BIGSERIAL PRIMARY KEY,
+  uuid         UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  device_uuid  VARCHAR(255) NOT NULL,
+  user_id      BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+
+  os           VARCHAR(100),
+  app_version  VARCHAR(50),
+
+  last_sync_at TIMESTAMPTZ,
+  is_blocked   BOOLEAN NOT NULL DEFAULT FALSE,
+  metadata     JSONB,
+
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX idx_devices_device_uuid ON public.devices(device_uuid);
+CREATE INDEX        idx_devices_user_id     ON public.devices(user_id);
+
+
+-------------------------------------------------------------------
+-- 5) DIVERGÊNCIAS, MOTIVOS, AUDITORIA, WORKFLOW
+-------------------------------------------------------------------
+
+CREATE TABLE public.divergence_reason_types (
+  id                     BIGSERIAL PRIMARY KEY,
+  uuid                   UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  company_id             BIGINT NOT NULL REFERENCES public.companies(id) ON DELETE RESTRICT,
+
+  code                   VARCHAR(50) NOT NULL,
+  description            VARCHAR(255) NOT NULL,
+  requires_documentation BOOLEAN NOT NULL DEFAULT FALSE,
+
+  is_active              BOOLEAN NOT NULL DEFAULT TRUE,
+
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX idx_divergence_reason_company_code ON public.divergence_reason_types(company_id, code);
+CREATE INDEX        idx_divergence_reason_company      ON public.divergence_reason_types(company_id);
+
+CREATE TABLE public.inventory_divergences (
+  id                    BIGSERIAL PRIMARY KEY,
+  uuid                  UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  event_id              BIGINT NOT NULL REFERENCES public.inventory_events(id) ON DELETE CASCADE,
+  zone_id               BIGINT REFERENCES public.zones(id) ON DELETE SET NULL,
+  product_id            BIGINT NOT NULL REFERENCES public.products(id) ON DELETE RESTRICT,
+
+  qty_primary           NUMERIC(18,4),
+  qty_audit             NUMERIC(18,4),
+  difference            NUMERIC(18,4),
+
+  resolution            VARCHAR(100),
+  divergence_reason     VARCHAR(255),
+  resolved_by_user_id   BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+  resolved_at           TIMESTAMPTZ,
+
+  metadata              JSONB,
+
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_inventory_divergences_event    ON public.inventory_divergences(event_id);
+CREATE INDEX idx_inventory_divergences_product  ON public.inventory_divergences(product_id);
+
+CREATE TABLE public.inventory_item_events (
+  id                BIGSERIAL PRIMARY KEY,
+  uuid              UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  inventory_item_id BIGINT NOT NULL REFERENCES public.inventory_items(id) ON DELETE CASCADE,
+
+  action            VARCHAR(50) NOT NULL,   -- created/updated/deleted/...
+  previous_qty      NUMERIC(18,4),
+  new_qty           NUMERIC(18,4),
+
+  user_id           BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+  device_id         VARCHAR(100),
+
+  timestamp         TIMESTAMPTZ NOT NULL,
+  notes             TEXT
+);
+CREATE INDEX idx_item_events_item   ON public.inventory_item_events(inventory_item_id);
+CREATE INDEX idx_item_events_user   ON public.inventory_item_events(user_id);
+
+CREATE TABLE public.inventory_item_revisions (
+  id                   BIGSERIAL PRIMARY KEY,
+  uuid                 UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  inventory_item_id    BIGINT NOT NULL REFERENCES public.inventory_items(id) ON DELETE CASCADE,
+  revision_number      INTEGER NOT NULL,
+
+  changed_by_user_id   BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+  change_ts            TIMESTAMPTZ NOT NULL,
+
+  payload              JSONB NOT NULL
+);
+CREATE INDEX idx_item_revisions_item ON public.inventory_item_revisions(inventory_item_id);
+
+CREATE TABLE public.workflow_logs (
+  id           BIGSERIAL PRIMARY KEY,
+  uuid         UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+
+  entity       VARCHAR(100) NOT NULL,
+  entity_id    BIGINT NOT NULL,
+  from_state   VARCHAR(50),
+  to_state     VARCHAR(50),
+  triggered_by BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+  timestamp    TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX idx_workflow_logs_entity ON public.workflow_logs(entity, entity_id);
+
+
+-------------------------------------------------------------------
+-- 6) TRIGGER PARA updated_at EM TODAS AS TABELAS COM ESSE CAMPO
+-------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
 RETURNS trigger
@@ -196,7 +416,6 @@ BEGIN
 END;
 $$;
 
--- create triggers on tables that have updated_at column
 DO $$
 DECLARE
   r RECORD;
@@ -210,15 +429,20 @@ BEGIN
   LOOP
     trg := 'trg_' || r.table_name || '_updated_at';
     EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', trg, r.table_name);
-    EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE ON public.%I FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column()', trg, r.table_name);
+    EXECUTE format(
+      'CREATE TRIGGER %I BEFORE UPDATE ON public.%I FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column()',
+      trg, r.table_name
+    );
   END LOOP;
 END$$;
 
 
--- 5) RLS HELPER FUNCTIONS (SECURITY DEFINER, STABLE)
+-------------------------------------------------------------------
+-- 7) FUNÇÕES HELPER RLS (SECURITY DEFINER)
+-------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.get_auth_company_id()
-RETURNS integer
+RETURNS BIGINT
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = public
 AS $$
@@ -240,7 +464,7 @@ AS $$
 $$;
 
 CREATE OR REPLACE FUNCTION public.get_auth_user_pk_id()
-RETURNS integer
+RETURNS BIGINT
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = public
 AS $$
@@ -250,35 +474,42 @@ AS $$
   LIMIT 1;
 $$;
 
--- Revoke execute from anon and authenticated to prevent callers invoking directly.
-REVOKE EXECUTE ON FUNCTION public.get_auth_company_id() FROM anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.get_auth_user_role() FROM anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.get_auth_user_pk_id() FROM anon, authenticated;
+-- Revogar EXECUTE para anon e authenticated (evitar invocação direta)
+REVOKE EXECUTE ON FUNCTION public.get_auth_company_id()  FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_auth_user_role()   FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_auth_user_pk_id()  FROM anon, authenticated;
 
 
--- 6) ENABLE RLS on tables (idempotent)
-ALTER TABLE IF EXISTS public.companies ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.locations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.product_barcodes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.inventory_events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.inventory_event_targets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.zones ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.inventory_items ENABLE ROW LEVEL SECURITY;
+-------------------------------------------------------------------
+-- 8) HABILITAR RLS NAS TABELAS ACESSADAS PELO CLIENTE
+-------------------------------------------------------------------
+
+ALTER TABLE public.companies               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users                   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.locations               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_categories      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_barcodes        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory_events        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory_event_targets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.zones                   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory_items         ENABLE ROW LEVEL SECURITY;
 
 
--- 7) RLS POLICIES (multi-tenant)
+-------------------------------------------------------------------
+-- 9) RLS POLICIES (MULTI-TENANT POR EMPRESA E ROLE)
+-------------------------------------------------------------------
 
--- 7.1 companies
-CREATE POLICY IF NOT EXISTS companies_read_by_company_id
+-- 9.1 companies
+DROP POLICY IF EXISTS companies_read_by_company_id ON public.companies;
+CREATE POLICY companies_read_by_company_id
 ON public.companies
 FOR SELECT
 TO authenticated
 USING ( id = public.get_auth_company_id() );
 
-CREATE POLICY IF NOT EXISTS companies_admin_manage
+DROP POLICY IF EXISTS companies_admin_manage ON public.companies;
+CREATE POLICY companies_admin_manage
 ON public.companies
 FOR ALL
 TO authenticated
@@ -287,19 +518,21 @@ USING (
   AND public.get_auth_user_role() = 'admin'
 )
 WITH CHECK (
-  NEW.id = public.get_auth_company_id()
+  id = public.get_auth_company_id()
   AND public.get_auth_user_role() = 'admin'
 );
 
 
--- 7.2 users
-CREATE POLICY IF NOT EXISTS users_read_all_in_company
+-- 9.2 users
+DROP POLICY IF EXISTS users_read_all_in_company ON public.users;
+CREATE POLICY users_read_all_in_company
 ON public.users
 FOR SELECT
 TO authenticated
 USING ( company_id = public.get_auth_company_id() );
 
-CREATE POLICY IF NOT EXISTS users_admin_manage
+DROP POLICY IF EXISTS users_admin_manage ON public.users;
+CREATE POLICY users_admin_manage
 ON public.users
 FOR ALL
 TO authenticated
@@ -308,19 +541,21 @@ USING (
   AND public.get_auth_user_role() = 'admin'
 )
 WITH CHECK (
-  NEW.company_id = public.get_auth_company_id()
+  company_id = public.get_auth_company_id()
   AND public.get_auth_user_role() = 'admin'
 );
 
 
--- 7.3 locations
-CREATE POLICY IF NOT EXISTS locations_read_company
+-- 9.3 locations
+DROP POLICY IF EXISTS locations_read_company ON public.locations;
+CREATE POLICY locations_read_company
 ON public.locations
 FOR SELECT
 TO authenticated
 USING ( company_id = public.get_auth_company_id() );
 
-CREATE POLICY IF NOT EXISTS locations_admin_manager_manage
+DROP POLICY IF EXISTS locations_admin_manager_manage ON public.locations;
+CREATE POLICY locations_admin_manager_manage
 ON public.locations
 FOR ALL
 TO authenticated
@@ -329,20 +564,22 @@ USING (
   AND public.get_auth_user_role() IN ('admin','manager')
 )
 WITH CHECK (
-  NEW.company_id = public.get_auth_company_id()
+  company_id = public.get_auth_company_id()
   AND public.get_auth_user_role() IN ('admin','manager')
 );
 
 
--- 7.4 categories
-CREATE POLICY IF NOT EXISTS categories_read_company
-ON public.categories
+-- 9.4 product_categories
+DROP POLICY IF EXISTS product_categories_read_company ON public.product_categories;
+CREATE POLICY product_categories_read_company
+ON public.product_categories
 FOR SELECT
 TO authenticated
 USING ( company_id = public.get_auth_company_id() );
 
-CREATE POLICY IF NOT EXISTS categories_admin_manager_manage
-ON public.categories
+DROP POLICY IF EXISTS product_categories_admin_manager_manage ON public.product_categories;
+CREATE POLICY product_categories_admin_manager_manage
+ON public.product_categories
 FOR ALL
 TO authenticated
 USING (
@@ -350,19 +587,21 @@ USING (
   AND public.get_auth_user_role() IN ('admin','manager')
 )
 WITH CHECK (
-  NEW.company_id = public.get_auth_company_id()
+  company_id = public.get_auth_company_id()
   AND public.get_auth_user_role() IN ('admin','manager')
 );
 
 
--- 7.5 products
-CREATE POLICY IF NOT EXISTS products_read_company
+-- 9.5 products
+DROP POLICY IF EXISTS products_read_company ON public.products;
+CREATE POLICY products_read_company
 ON public.products
 FOR SELECT
 TO authenticated
 USING ( company_id = public.get_auth_company_id() );
 
-CREATE POLICY IF NOT EXISTS products_manager_auditor_manage
+DROP POLICY IF EXISTS products_manager_auditor_manage ON public.products;
+CREATE POLICY products_manager_auditor_manage
 ON public.products
 FOR ALL
 TO authenticated
@@ -371,19 +610,21 @@ USING (
   AND public.get_auth_user_role() IN ('admin','manager','auditor')
 )
 WITH CHECK (
-  NEW.company_id = public.get_auth_company_id()
+  company_id = public.get_auth_company_id()
   AND public.get_auth_user_role() IN ('admin','manager','auditor')
 );
 
 
--- 7.6 product_barcodes
-CREATE POLICY IF NOT EXISTS barcodes_read_company
+-- 9.6 product_barcodes
+DROP POLICY IF EXISTS barcodes_read_company ON public.product_barcodes;
+CREATE POLICY barcodes_read_company
 ON public.product_barcodes
 FOR SELECT
 TO authenticated
 USING ( company_id = public.get_auth_company_id() );
 
-CREATE POLICY IF NOT EXISTS barcodes_manager_auditor_manage
+DROP POLICY IF EXISTS barcodes_manager_auditor_manage ON public.product_barcodes;
+CREATE POLICY barcodes_manager_auditor_manage
 ON public.product_barcodes
 FOR ALL
 TO authenticated
@@ -392,13 +633,14 @@ USING (
   AND public.get_auth_user_role() IN ('admin','manager','auditor')
 )
 WITH CHECK (
-  NEW.company_id = public.get_auth_company_id()
+  company_id = public.get_auth_company_id()
   AND public.get_auth_user_role() IN ('admin','manager','auditor')
 );
 
 
--- 7.7 inventory_events
-CREATE POLICY IF NOT EXISTS events_management_roles
+-- 9.7 inventory_events
+DROP POLICY IF EXISTS events_management_roles ON public.inventory_events;
+CREATE POLICY events_management_roles
 ON public.inventory_events
 FOR ALL
 TO authenticated
@@ -407,13 +649,14 @@ USING (
   AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
 )
 WITH CHECK (
-  NEW.company_id = public.get_auth_company_id()
+  company_id = public.get_auth_company_id()
   AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
 );
 
 
--- 7.8 inventory_event_targets
-CREATE POLICY IF NOT EXISTS targets_management_roles
+-- 9.8 inventory_event_targets
+DROP POLICY IF EXISTS targets_management_roles ON public.inventory_event_targets;
+CREATE POLICY targets_management_roles
 ON public.inventory_event_targets
 FOR ALL
 TO authenticated
@@ -422,74 +665,83 @@ USING (
   AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
 )
 WITH CHECK (
-  NEW.company_id = public.get_auth_company_id()
+  company_id = public.get_auth_company_id()
   AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
 );
 
 
--- 7.9 zones
-CREATE POLICY IF NOT EXISTS zones_management_roles
+-- 9.9 zones
+DROP POLICY IF EXISTS zones_management_roles ON public.zones;
+CREATE POLICY zones_management_roles
 ON public.zones
 FOR ALL
 TO authenticated
 USING (
   event_id IN (
-    SELECT id FROM public.inventory_events WHERE company_id = public.get_auth_company_id()
+    SELECT id FROM public.inventory_events
+    WHERE company_id = public.get_auth_company_id()
   )
   AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
 )
 WITH CHECK (
-  NEW.event_id IN (
-    SELECT id FROM public.inventory_events WHERE company_id = public.get_auth_company_id()
+  event_id IN (
+    SELECT id FROM public.inventory_events
+    WHERE company_id = public.get_auth_company_id()
   )
   AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
 );
 
 
--- 7.10 inventory_items
-
-CREATE POLICY IF NOT EXISTS items_insert_counter_auditor_check
+-- 9.10 inventory_items
+DROP POLICY IF EXISTS items_insert_counter_auditor_check ON public.inventory_items;
+CREATE POLICY items_insert_counter_auditor_check
 ON public.inventory_items
 FOR INSERT
 TO authenticated
 WITH CHECK (
-  NEW.user_id = public.get_auth_user_pk_id()
-  AND NEW.zone_id IN (
-    SELECT z.id FROM public.zones z
+  user_id = public.get_auth_user_pk_id()
+  AND zone_id IN (
+    SELECT z.id
+    FROM public.zones z
     JOIN public.inventory_events e ON e.id = z.event_id
     WHERE e.company_id = public.get_auth_company_id()
   )
   AND public.get_auth_user_role() IN ('counter','auditor')
 );
 
-CREATE POLICY IF NOT EXISTS items_select_full_access_roles
+DROP POLICY IF EXISTS items_select_full_access_roles ON public.inventory_items;
+CREATE POLICY items_select_full_access_roles
 ON public.inventory_items
 FOR SELECT
 TO authenticated
 USING (
   zone_id IN (
-    SELECT z.id FROM public.zones z
+    SELECT z.id
+    FROM public.zones z
     JOIN public.inventory_events e ON e.id = z.event_id
     WHERE e.company_id = public.get_auth_company_id()
   )
   AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
 );
 
-CREATE POLICY IF NOT EXISTS items_update_full_access_roles
+DROP POLICY IF EXISTS items_update_full_access_roles ON public.inventory_items;
+CREATE POLICY items_update_full_access_roles
 ON public.inventory_items
 FOR UPDATE
 TO authenticated
 USING (
   zone_id IN (
-    SELECT z.id FROM public.zones z
+    SELECT z.id
+    FROM public.zones z
     JOIN public.inventory_events e ON e.id = z.event_id
     WHERE e.company_id = public.get_auth_company_id()
   )
   AND public.get_auth_user_role() IN ('admin','manager','coordinator','auditor')
 )
 WITH CHECK (
-  NEW.zone_id IN (
-    SELECT z.id FROM public.zones z
+  zone_id IN (
+    SELECT z.id
+    FROM public.zones z
     JOIN public.inventory_events e ON e.id = z.event_id
     WHERE e.company_id = public.get_auth_company_id()
   )
@@ -497,10 +749,21 @@ WITH CHECK (
 );
 
 
--- 8) RECOMMENDED ADDITIONAL INDEXES (para performance das policies)
--- (idx_inventory_events_company já existe; garantimos index em zones.event_id e users.supabase_auth_id)
-CREATE INDEX IF NOT EXISTS idx_zones_event_id ON public.zones(event_id);
--- users.supabase_auth_id já criado acima
+-------------------------------------------------------------------
+-- 10) Adicionar coluna deleted_at TIMESTAMPTZ nas tabelas solicitadas
+-------------------------------------------------------------------
 
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.locations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.product_categories ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.product_barcodes ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.inventory_events ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.inventory_event_targets ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.zones ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE public.inventory_items ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
--- END OF SCRIPT
+-------------------------------------------------------------------
+-- FIM DO SCHEMA V9
+-------------------------------------------------------------------
