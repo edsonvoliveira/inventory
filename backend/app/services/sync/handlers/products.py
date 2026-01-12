@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from app.services.sync.handlers.base import BaseSyncHandler
 from app.clients.supabase_client import get_supabase_service_client
-from app.core.security import CurrentUser
+from app.core.user_context import UserContext
 
 
 class ProductSyncHandler(BaseSyncHandler):
@@ -52,13 +52,13 @@ class ProductSyncHandler(BaseSyncHandler):
         self,
         payload: Dict[str, Any],
         record_uuid: str,
-        user: CurrentUser,
+        user: UserContext,
     ) -> None:
         sb = get_supabase_service_client()
 
         data = {
             "uuid": record_uuid,
-            "company_id": payload["company_id"],
+            "company_id": user.company_server_id,
             "sku": payload["sku"],
             "name": payload["name"],
             "description": payload.get("description"),
@@ -81,7 +81,7 @@ class ProductSyncHandler(BaseSyncHandler):
         self,
         payload: Dict[str, Any],
         record_uuid: str,
-        user: CurrentUser,
+        user: UserContext,
     ) -> None:
         sb = get_supabase_service_client()
 
@@ -119,7 +119,7 @@ class ProductSyncHandler(BaseSyncHandler):
         self,
         payload: Dict[str, Any],
         record_uuid: str,
-        user: CurrentUser,
+        user: UserContext,
     ) -> None:
         sb = get_supabase_service_client()
 

@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
 from app.services.sync.handlers.base import BaseSyncHandler
-from app.core.security import CurrentUser
+from app.core.user_context import UserContext
 from app.clients.supabase_client import get_supabase_service_client
 
 class ZoneUserProgressHandler(BaseSyncHandler):
@@ -18,7 +18,7 @@ class ZoneUserProgressHandler(BaseSyncHandler):
         *,
         company_id: int,
         since: Optional[datetime],
-        user: CurrentUser,
+        user: UserContext,
     ) -> list[dict[str, Any]]:
         supabase = get_supabase_service_client()
 
@@ -54,7 +54,7 @@ class ZoneUserProgressHandler(BaseSyncHandler):
         *,
         payload: Dict[str, Any],
         record_uuid: str,
-        user: CurrentUser,
+        user: UserContext,
     ) -> None:
         data = payload.copy()
         data["uuid"] = record_uuid
@@ -70,7 +70,7 @@ class ZoneUserProgressHandler(BaseSyncHandler):
         *,
         payload: Dict[str, Any],
         record_uuid: str,
-        user: CurrentUser,
+        user: UserContext,
     ) -> None:
         data = payload.copy()
 
@@ -87,7 +87,7 @@ class ZoneUserProgressHandler(BaseSyncHandler):
         *,
         payload: Dict[str, Any],
         record_uuid: str,
-        user: CurrentUser,
+        user: UserContext,
     ) -> None:
         """
         Soft delete vindo do desktop.

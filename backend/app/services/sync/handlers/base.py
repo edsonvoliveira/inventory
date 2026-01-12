@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List
 from datetime import datetime
 
-from app.core.security import CurrentUser
+from app.core.user_context import UserContext
 
 
 class BaseSyncHandler(ABC):
@@ -27,7 +27,7 @@ class BaseSyncHandler(ABC):
         self,
         payload: Dict[str, Any],
         record_uuid: str,
-        user: CurrentUser,
+        user: UserContext,
     ) -> None:
         pass
 
@@ -36,7 +36,7 @@ class BaseSyncHandler(ABC):
         self,
         payload: Dict[str, Any],
         record_uuid: str,
-        user: CurrentUser,
+        user: UserContext,
     ) -> None:
         pass
 
@@ -44,7 +44,7 @@ class BaseSyncHandler(ABC):
         self,
         payload: Dict[str, Any],
         record_uuid: str,
-        user: CurrentUser,
+        user: UserContext,
     ) -> None:
         """
         Delete lógico (soft delete).

@@ -8,17 +8,11 @@ import pytest
 
 from app.services.sync.handlers.products import ProductSyncHandler
 from app.clients.supabase_client import get_supabase_service_client
-
+from tests.helpers.test_user import FakeCurrentUser
 
 # ---------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------
-
-class FakeCurrentUser:
-    def __init__(self, company_server_id: int, db_user_id: int):
-        self.company_server_id = company_server_id
-        self.db_user_id = db_user_id
-
 
 TEST_COMPANY_ID = int(os.environ["TEST_COMPANY_ID"])
 TEST_USER_ID = 1
@@ -64,13 +58,15 @@ def test_products_pull_incremental():
     handler = ProductSyncHandler()
     sb = get_supabase_service_client()
 
-    record_uuid = f"test-inc-{uuid4()}"
+    record_uuid = str(uuid4())
 
     sb.table("products").insert({
         "uuid": record_uuid,
         "company_id": TEST_COMPANY_ID,
         "name": "Produto Incremental",
         "sku": "SKU-INC",
+        "uom_base": "UN",
+        "uom_inventory": "UN",
         "is_active": True,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }).execute()
@@ -95,7 +91,7 @@ def test_products_push_insert_and_pull():
     - aparece no pull
     """
     handler = ProductSyncHandler()
-    record_uuid = f"test-insert-{uuid4()}"
+    record_uuid = str(uuid4())
 
     user = FakeCurrentUser(
         company_server_id=TEST_COMPANY_ID,
@@ -105,6 +101,8 @@ def test_products_push_insert_and_pull():
     payload = {
         "name": "Produto Push Insert",
         "sku": "SKU-PUSH",
+        "uom_base": "UN",
+        "uom_inventory": "UN",
         "is_active": True,
     }
 
@@ -133,13 +131,16 @@ def test_products_push_update():
     handler = ProductSyncHandler()
     sb = get_supabase_service_client()
 
-    record_uuid = f"test-update-{uuid4()}"
+    record_uuid = str(uuid4())
 
     sb.table("products").insert({
         "uuid": record_uuid,
         "company_id": TEST_COMPANY_ID,
         "name": "Produto Original",
         "sku": "SKU-OLD",
+        "uom_base": "UN",
+        "uom_inventory": "UN",
+        "conversion_factor": 1,
         "is_active": True,
     }).execute()
 
@@ -159,15 +160,18 @@ def test_products_push_update():
     )
 
     try:
-        updated = (
+        resp = (
             sb.table("products")
             .select("name")
             .eq("uuid", record_uuid)
-            .single()
             .execute()
-            .data
         )
 
+        assert isinstance(resp.data, list)
+        assert len(resp.data) == 1
+
+        updated = resp.data[0]
+        assert isinstance(updated, dict)
         assert updated["name"] == "Produto Atualizado"
     finally:
         cleanup_product(record_uuid)
@@ -181,13 +185,16 @@ def test_products_push_soft_delete():
     handler = ProductSyncHandler()
     sb = get_supabase_service_client()
 
-    record_uuid = f"test-delete-{uuid4()}"
+    record_uuid = str(uuid4())
 
     sb.table("products").insert({
         "uuid": record_uuid,
         "company_id": TEST_COMPANY_ID,
         "name": "Produto Delete",
         "sku": "SKU-DEL",
+        "uom_base": "UN",
+        "uom_inventory": "UN",
+        "conversion_factor": 1,
         "is_active": True,
     }).execute()
 
@@ -203,15 +210,18 @@ def test_products_push_soft_delete():
     )
 
     try:
-        row = (
+        resp = (
             sb.table("products")
             .select("is_active")
             .eq("uuid", record_uuid)
-            .single()
             .execute()
-            .data
         )
 
+        assert isinstance(resp.data, list)
+        assert len(resp.data) == 1
+
+        row = resp.data[0]
+        assert isinstance(row, dict)
         assert row["is_active"] is False
     finally:
         cleanup_product(record_uuid)

@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from app.services.sync.handlers.base import BaseSyncHandler
 from app.clients.supabase_client import get_supabase_service_client
-from app.core.security import CurrentUser
+from app.core.user_context import UserContext
 
 
 class ZoneSyncHandler(BaseSyncHandler):
@@ -50,7 +50,7 @@ class ZoneSyncHandler(BaseSyncHandler):
     # ---------------------------
     # PUSH (INSERT)
     # ---------------------------
-    def insert(self, payload: Dict[str, Any], record_uuid: str, user: CurrentUser) -> None:
+    def insert(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
 
         data = {
@@ -68,7 +68,7 @@ class ZoneSyncHandler(BaseSyncHandler):
     # ---------------------------
     # PUSH (UPDATE)
     # ---------------------------
-    def update(self, payload: Dict[str, Any], record_uuid: str, user: CurrentUser) -> None:
+    def update(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
 
         update_data = {}
@@ -95,7 +95,7 @@ class ZoneSyncHandler(BaseSyncHandler):
     # ---------------------------
     # PUSH (DELETE)
     # ---------------------------
-    def delete(self, payload: Dict[str, Any], record_uuid: str, user: CurrentUser) -> None:
+    def delete(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
 
         sb.table("zones").update(
