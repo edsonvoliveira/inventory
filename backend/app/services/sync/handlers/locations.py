@@ -53,7 +53,7 @@ class LocationSyncHandler(BaseSyncHandler):
 
         data = {
             "uuid": record_uuid,
-            "company_id": payload["company_id"],
+            "company_id": user.company_server_id,
             "code": payload["code"],
             "name": payload["name"],
             "address": payload.get("address"),

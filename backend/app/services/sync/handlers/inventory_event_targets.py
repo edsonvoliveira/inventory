@@ -113,7 +113,7 @@ class InventoryEventTargetSyncHandler(BaseSyncHandler):
 
         data = {
             "uuid": record_uuid,
-            "company_id": payload["company_id"],
+            "company_id": user.company_server_id,
             "event_id": event_id,
             "product_id": product_id,
             "expected_qty": expected_qty,

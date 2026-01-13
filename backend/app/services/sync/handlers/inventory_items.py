@@ -1,7 +1,7 @@
 # backend/app/services/sync/handlers/inventory_items.py
 
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import cast, Dict, Any, List, Optional
 
 from app.services.sync.handlers.base import BaseSyncHandler
 from app.clients.supabase_client import get_supabase_service_client
@@ -23,36 +23,48 @@ class InventoryItemSyncHandler(BaseSyncHandler):
 
         sb = get_supabase_service_client()
 
-        query = (
-            sb.table(self.table_name)
-            .select(
-                "*, inventory_events!inner(company_id)"
-            )
+        zone_ids_resp = (
+            sb.table("zones")
+            .select("id, inventory_events!inner(company_id)")
             .eq("inventory_events.company_id", company_id)
-            .eq("is_active", True)
+            .execute()
+        )
+
+        zone_ids: List[int] = []
+
+        for z in zone_ids_resp.data or []:
+            if not isinstance(z, dict):
+                continue
+
+            raw_id = z.get("id")
+            if isinstance(raw_id, (int, str)):
+                zone_ids.append(int(raw_id))
+
+        if not zone_ids:
+            return []
+
+        query = (
+            sb.table("inventory_items")
+            .select("*")
+            .in_("zone_id", zone_ids)
         )
 
         if since is not None:
-            query = query.gte("updated_at", since.astimezone(timezone.utc).isoformat())
+            query = query.gte(
+                "updated_at",
+                since.astimezone(timezone.utc).isoformat()
+            )
 
         result = query.execute()
-        data = result.data or []
+        return cast(List[Dict[str, Any]], result.data or [])
 
-        out: List[Dict[str, Any]] = []
-        for item in data:
-            if isinstance(item, dict):
-                out.append(item)
-            else:
-                # se vier algo inesperado, ignore ou levante erro
-                # raise TypeError(f"Unexpected item type: {type(item)}")
-                continue            
-        return out
 
     # ---------------------------
     # PUSH (INSERT)
     # ---------------------------
     def insert(
         self,
+        *,
         payload: Dict[str, Any],
         record_uuid: str,
         user: UserContext,
@@ -110,6 +122,7 @@ class InventoryItemSyncHandler(BaseSyncHandler):
     # ---------------------------
     def update(
         self,
+        *,
         payload: Dict[str, Any],
         record_uuid: str,
         user: UserContext,
@@ -172,7 +185,8 @@ class InventoryItemSyncHandler(BaseSyncHandler):
             "previous_qty": previous_qty,
             "new_qty": update_data.get("qty_counted", previous_qty),
             "user_id": user.db_user_id,
-            "timestamp": update_data.get("device_timestamp"),
+            "timestamp": payload.get("device_timestamp")
+                or datetime.now(timezone.utc).isoformat(),
             "notes": "Updated via sync",
         }).execute()
 
@@ -188,6 +202,6 @@ class InventoryItemSyncHandler(BaseSyncHandler):
         sb = get_supabase_service_client()
 
         sb.table("inventory_items").update({
-            "is_active": False,
+            "deleted_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("uuid", record_uuid).execute()

@@ -53,7 +53,7 @@ class InventoryEventSyncHandler(BaseSyncHandler):
 
         data = {
             "uuid": record_uuid,
-            "company_id": payload["company_id"],
+            "company_id": user.company_server_id,
             "location_id": payload["location_id"],  # server_id
             "title": payload["title"],
             "event_type": payload["event_type"],

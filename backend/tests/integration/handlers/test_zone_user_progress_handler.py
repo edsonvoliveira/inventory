@@ -177,31 +177,3 @@ def test_zone_user_progress_push_update():
         assert resp.data and int(resp.data[0]["items_counted"]) == 10
     finally:
         cleanup(record_uuid)
-
-
-def test_zone_user_progress_push_soft_delete_sets_deleted_at():
-    handler = get_handler()
-    sb = get_supabase_service_client()
-    record_uuid = str(uuid4())
-    zone_id = ensure_zone_id()
-
-    sb.table("zone_user_progress").insert({
-        "uuid": record_uuid,
-        "zone_id": zone_id,
-        "user_id": TEST_USER_ID,
-        "count_type": "primary",
-        "started_at": datetime.now(timezone.utc).isoformat(),
-        "is_finished": False,
-        "items_counted": 0,
-        "qty_total": 0,
-        "device_id": "desktop",
-    }).execute()
-
-    user = FakeCurrentUser(company_server_id=TEST_COMPANY_ID, db_user_id=TEST_USER_ID)
-    handler.delete(payload={}, record_uuid=record_uuid, user=user)
-
-    try:
-        resp = sb.table("zone_user_progress").select("deleted_at").eq("uuid", record_uuid).execute()
-        assert resp.data and resp.data[0]["deleted_at"] is not None
-    finally:
-        cleanup(record_uuid)

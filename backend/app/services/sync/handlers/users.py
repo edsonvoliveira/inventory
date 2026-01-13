@@ -53,7 +53,7 @@ class UserSyncHandler(BaseSyncHandler):
 
         data = {
             "uuid": record_uuid,
-            "company_id": payload["company_id"],  # 🔒 sempre do JWT
+            "company_id": user.company_server_id,
             "email": payload["email"],
             "username": payload.get("username"),
             "name": payload["name"],

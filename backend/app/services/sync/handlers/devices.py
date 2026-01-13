@@ -45,9 +45,9 @@ class DeviceSyncHandler(BaseSyncHandler):
                 continue
         return out
 
-    # ======================================================
-    # INSERT
-    # ======================================================
+    # ---------------------------
+    # PUSH (INSERT)
+    # ---------------------------
     def insert(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
 
@@ -64,9 +64,9 @@ class DeviceSyncHandler(BaseSyncHandler):
 
         sb.table("devices").insert(data).execute()
 
-    # ======================================================
-    # UPDATE
-    # ======================================================
+    # ---------------------------
+    # PUSH (UPDATE)
+    # ---------------------------
     def update(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
 
@@ -91,9 +91,9 @@ class DeviceSyncHandler(BaseSyncHandler):
             "uuid", record_uuid
         ).execute()
 
-    # ======================================================
-    # SOFT DELETE (opcional)
-    # ======================================================
+    # ---------------------------
+    # PUSH (DELETE)
+    # ---------------------------
     def delete(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
 

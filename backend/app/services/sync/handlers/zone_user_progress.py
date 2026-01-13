@@ -18,16 +18,16 @@ class ZoneUserProgressHandler(BaseSyncHandler):
         *,
         company_id: int,
         since: Optional[datetime],
-        user: UserContext,
     ) -> list[dict[str, Any]]:
         supabase = get_supabase_service_client()
 
         query = (
-            supabase.table(self.table_name)
+            supabase
+            .table(self.table_name)
             .select(
-                "*, zones!inner(inventory_event_id), inventory_events!inner(company_id)"
+                "*, zones!inner(id, inventory_events!inner(company_id))"
             )
-            .eq("inventory_events.company_id", company_id)
+            .eq("zones.inventory_events.company_id", company_id)
         )
 
         if since is not None:
@@ -79,22 +79,3 @@ class ZoneUserProgressHandler(BaseSyncHandler):
             "uuid", record_uuid
         ).execute()
 
-    # ---------------------------
-    # PUSH (DELETE)
-    # ---------------------------
-    def delete(
-        self,
-        *,
-        payload: Dict[str, Any],
-        record_uuid: str,
-        user: UserContext,
-    ) -> None:
-        """
-        Soft delete vindo do desktop.
-        """
-        supabase = get_supabase_service_client()
-        supabase.table(self.table_name).update(
-            {
-                "deleted_at": payload.get("deleted_at") or datetime.now(timezone.utc).isoformat()
-            }
-        ).eq("uuid", record_uuid).execute()

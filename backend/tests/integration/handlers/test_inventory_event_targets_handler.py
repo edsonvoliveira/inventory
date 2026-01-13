@@ -127,10 +127,38 @@ def test_inventory_event_targets_push_insert_and_pull():
     event_id = ensure_event_id()
     product_id = ensure_product_id()
 
+    sb = get_supabase_service_client()
+
+    event_resp = (
+        sb.table("inventory_events")
+        .select("uuid")
+        .eq("id", event_id)
+        .single()
+        .execute()
+    )
+
+    assert event_resp.data is not None
+    assert isinstance(event_resp.data, dict)
+
+    event_uuid = event_resp.data["uuid"]
+
+    product_resp = (
+        sb.table("products")
+        .select("uuid")
+        .eq("id", product_id)
+        .single()
+        .execute()
+    )
+
+    assert product_resp.data is not None
+    assert isinstance(product_resp.data, dict)
+
+    product_uuid = product_resp.data["uuid"]
+
     user = FakeCurrentUser(company_server_id=TEST_COMPANY_ID, db_user_id=TEST_USER_ID)
     payload = {
-        "event_id": event_id,
-        "product_id": product_id,
+        "event_uuid": event_uuid,
+        "product_uuid": product_uuid,
         "expected_qty": 5,
         "is_active": True,
     }
