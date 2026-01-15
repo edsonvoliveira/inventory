@@ -13,8 +13,8 @@ import uuid
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from data.schema import SCHEMA_SQL, SCHEMA_VERSION
-from data.migrations import ensure_meta_table, get_schema_version, migrate_schema, set_schema_version
+from mobile.data.db.schema import SCHEMA_SQL, SCHEMA_VERSION
+from mobile.data.migrations import ensure_meta_table, get_schema_version, migrate_schema, set_schema_version
 
 try:
     from config.settings import DB_PATH

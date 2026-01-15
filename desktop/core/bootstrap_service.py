@@ -6,33 +6,24 @@ Responsibilities:
 - Coordinate related operations and dependencies.
 """
 
-# desktop/core/bootstrap_service.py
-
-from desktop.core.sync_pull_service import SyncPullService
+from desktop.app_core_container import build_services
 from desktop.core.session_service import SessionService
-from desktop.data.repositories.app_meta_repo import set_meta
-from desktop.data.db.connection import get_connection
 
 
 class BootstrapService:
     """
-    Responsável por inicializar o cache local após login ou troca de empresa.
+    Bootstrap wrapper delegating to app_core.
     """
 
     def run(self) -> None:
-        conn = get_connection()
-        try:
-            company_server_id = SessionService.get_company_server_id()
-            if not company_server_id:
-                raise RuntimeError("company_server_id nÆo definido para bootstrap")
+        services = build_services()
+        services.bootstrap.run()
 
-            # Bootstrap = pull FULL (sem since)
-            # Reset do marcador de pull incremental
-            set_meta("last_pull_at", "", conn)
 
-            SyncPullService().run()
+def run_bootstrap(jwt_token: str) -> bool:
+    if not jwt_token:
+        raise RuntimeError("JWT token not available for bootstrap")
 
-            # Marcar bootstrap conclu¡do
-            set_meta("bootstrap_done", "1", conn)
-        finally:
-            conn.close()
+    SessionService.set_jwt_token(jwt_token)
+    BootstrapService().run()
+    return True

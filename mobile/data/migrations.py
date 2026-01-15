@@ -34,8 +34,37 @@ def _migrate_to_2(conn) -> None:
     return None
 
 
+def _migrate_to_3(conn) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS product_categories_local (
+          uuid TEXT PRIMARY KEY,
+          server_id INTEGER NOT NULL UNIQUE,
+
+          company_server_id INTEGER NOT NULL,
+
+          code TEXT,
+          name TEXT NOT NULL,
+          description TEXT,
+
+          is_active INTEGER DEFAULT 1,
+
+          updated_at TEXT,
+          deleted_at TEXT
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_product_categories_local_company_server_id ON product_categories_local(company_server_id)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_product_categories_local_name ON product_categories_local(name)"
+    )
+
+
 MIGRATIONS: dict[int, Callable] = {
     2: _migrate_to_2,
+    3: _migrate_to_3,
 }
 
 

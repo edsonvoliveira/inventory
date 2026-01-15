@@ -9,13 +9,11 @@ Responsibilities:
 from dataclasses import dataclass
 from typing import Optional
 
+from desktop.app_core_container import build_services
 from desktop.core.session_service import SessionService
-from desktop.data.repositories.app_meta_repo import get_meta
-from desktop.data.db.connection import get_connection
-
-from desktop.core.sync_pull_service import SyncPullService
-from desktop.core.sync_push_service import SyncPushService
 from desktop.core.bootstrap_service import BootstrapService
+from desktop.bootstrap.bootstrap import wipe_local_database
+from desktop.data.repositories.app_meta_repo import get_meta, set_meta
 
 
 @dataclass
@@ -28,50 +26,48 @@ class SyncResult:
 
 
 class SyncService:
-
     def run(self) -> SyncResult:
-        try:
-            conn = get_connection()
+        services = build_services()
+        result = services.sync.run()
+        return SyncResult(
+            did_bootstrap=result.did_bootstrap,
+            push_accepted=result.push_accepted,
+            push_failed=result.push_failed,
+            pulled=result.pulled,
+            error=result.error,
+        )
 
-            jwt_token = SessionService.get_jwt_token()
-            if not jwt_token:
-                raise RuntimeError("JWT token não disponível para sincronização")
 
-            company_server_id = SessionService.get_company_server_id()
-            if not company_server_id:
-                raise RuntimeError("company_server_id não definido na sessão")
+def ensure_bootstrap_for_company(company_id: int, company_uuid: str) -> bool:
+    stored_company_id = get_meta("company_id")
+    bootstrap_done = get_meta("bootstrap_done") in {"1", "true"}
 
-            bootstrap_done = get_meta("bootstrap_done", conn)
-            if bootstrap_done != "1":
-                BootstrapService().run()
-                return SyncResult(
-                    did_bootstrap=True,
-                    push_accepted=0,
-                    push_failed=0,
-                    pulled=True,
-                    error=None,
-                )
+    if stored_company_id is None:
+        set_meta("company_id", str(company_id))
+        set_meta("company_uuid", company_uuid)
+        set_meta("bootstrap_done", "false")
+        BootstrapService().run()
+        return True
 
-            # Ordem recomendada (padrão offline-first):
-            # 1) push (publica mudanças locais)
-            # 2) pull (traz consolidação do servidor)
-            push_accepted, push_failed = SyncPushService().run()
+    if stored_company_id != str(company_id):
+        wipe_local_database()
+        set_meta("company_id", str(company_id))
+        set_meta("company_uuid", company_uuid)
+        set_meta("bootstrap_done", "false")
+        BootstrapService().run()
+        return True
 
-            SyncPullService().run()
+    if not bootstrap_done:
+        BootstrapService().run()
+        return True
 
-            return SyncResult(
-                did_bootstrap=False,
-                push_accepted=push_accepted,
-                push_failed=push_failed,
-                pulled=True,
-                error=None,
-            )
+    return False
 
-        except Exception as e:
-            return SyncResult(
-                did_bootstrap=False,
-                push_accepted=0,
-                push_failed=0,
-                pulled=False,
-                error=str(e),
-            )
+
+def push_outbox_once(jwt_token: str) -> tuple[int, int]:
+    if not jwt_token:
+        raise RuntimeError("JWT token not available for sync push")
+
+    SessionService.set_jwt_token(jwt_token)
+    services = build_services()
+    return services.sync_push.run()

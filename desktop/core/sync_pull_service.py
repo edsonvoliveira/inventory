@@ -6,38 +6,45 @@ Responsibilities:
 - Coordinate related operations and dependencies.
 """
 
+from desktop.app_core_container import build_services
 from desktop.core.http_client import get
 from desktop.core.sync.apply_pull_payload import apply_pull_payload
 from desktop.data.repositories.app_meta_repo import get_meta
 from desktop.data.db.connection import get_connection
-from desktop.core.session_service import SessionService
 
 
 class SyncPullService:
     """
-    Orquestra o sync pull incremental.
-    Responsabilidade única: buscar dados do servidor e delegar aplicação.
+    Wrapper delegating sync pull to app_core.
     """
 
     def run(self) -> None:
-        conn = get_connection()
-        try:
-            jwt_token = SessionService.get_jwt_token()
-            if not jwt_token:
-                raise RuntimeError("JWT token nÆo dispon¡vel para sync pull")
+        services = build_services()
+        services.sync_pull.run()
 
-            since = get_meta("last_pull_at", conn)
 
-            params = {}
-            if since:
-                params["since"] = since
+def pull_once(jwt_token: str) -> int:
+    """
+    Helper for ad-hoc pull tests without touching session state.
+    Returns the count of received records in the payload.
+    """
+    if not jwt_token:
+        raise RuntimeError("JWT token not available for sync pull")
 
-            payload = get(
-                "/v1/sync/pull",
-                jwt_token=jwt_token,
-                params=params,
-            )
+    conn = get_connection()
+    try:
+        since = get_meta("last_pull_at", conn)
+        params = {}
+        if since:
+            params["since"] = since
 
-            apply_pull_payload(payload, conn)
-        finally:
-            conn.close()
+        payload = get(
+            "/v1/sync/pull",
+            jwt_token=jwt_token,
+            params=params,
+        )
+
+        apply_pull_payload(payload, conn)
+        return sum(len(v) for v in payload.values() if isinstance(v, list))
+    finally:
+        conn.close()

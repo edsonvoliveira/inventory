@@ -6,7 +6,7 @@ Responsibilities:
 - Provide SQL statements for setup.
 """
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA_SQL = """
 PRAGMA foreign_keys = ON;
@@ -158,6 +158,25 @@ CREATE INDEX IF NOT EXISTS ix_targets_local_product_uuid ON inventory_event_targ
 -- CATÁLOGO (SUPORTE “TOTAL” para operação)
 -- products + barcodes devem ser completos (ou o mais completo possível).
 -- ======================================================
+
+CREATE TABLE IF NOT EXISTS product_categories_local (
+  uuid TEXT PRIMARY KEY,
+  server_id INTEGER NOT NULL UNIQUE,
+
+  company_server_id INTEGER NOT NULL,
+
+  code TEXT,
+  name TEXT NOT NULL,
+  description TEXT,
+
+  is_active INTEGER DEFAULT 1,
+
+  updated_at TEXT,
+  deleted_at TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_product_categories_local_company_server_id ON product_categories_local(company_server_id);
+CREATE INDEX IF NOT EXISTS ix_product_categories_local_name ON product_categories_local(name);
+
 
 CREATE TABLE IF NOT EXISTS products_local (
   uuid TEXT PRIMARY KEY,

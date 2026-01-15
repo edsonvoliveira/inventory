@@ -9,28 +9,68 @@ Responsibilities:
 from mobile.data.db.connection import get_connection
 
 
-def replace_all(rows: list[dict]):
+def replace_all(rows: list[dict]) -> None:
     conn = get_connection()
     cur = conn.cursor()
-
     cur.execute("DELETE FROM companies_local")
-
     for r in rows:
         cur.execute(
             """
             INSERT INTO companies_local (
                 uuid,
                 server_id,
-                name
+                name,
+                is_active,
+                updated_at,
+                deleted_at
             )
-            VALUES (?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 r["uuid"],
                 r["server_id"],
                 r["name"],
+                r.get("is_active", 1),
+                r.get("updated_at"),
+                r.get("deleted_at"),
             ),
         )
+    conn.commit()
+    conn.close()
 
+
+def upsert_many(rows: list[dict]) -> None:
+    if not rows:
+        return
+    conn = get_connection()
+    sql = """
+        INSERT INTO companies_local (
+            uuid,
+            server_id,
+            name,
+            is_active,
+            updated_at,
+            deleted_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(server_id) DO UPDATE SET
+            uuid=excluded.uuid,
+            name=excluded.name,
+            is_active=excluded.is_active,
+            updated_at=excluded.updated_at,
+            deleted_at=excluded.deleted_at
+    """
+    for r in rows:
+        conn.execute(
+            sql,
+            (
+                r["uuid"],
+                r["server_id"],
+                r["name"],
+                r.get("is_active", 1),
+                r.get("updated_at"),
+                r.get("deleted_at"),
+            ),
+        )
     conn.commit()
     conn.close()

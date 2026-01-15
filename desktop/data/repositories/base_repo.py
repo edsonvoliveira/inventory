@@ -1,23 +1,12 @@
-# desktop/data/repositories/base_repo.py
-
+from __future__ import annotations
 """
 Responsibilities:
-- Repository for base data.
-- Define persistence and sync behavior.
-"""
-
-#desktop/data/repositories/base_repo.py
-
-"""
-Responsabilities:
 - Basic CRUD operations for local database repositories
 - Outbox pattern for async operations
 - Syncing with server
 - Configurable via RepoConfig
 - Designed for extensibility for specific entity repositories
 """
-
-from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
