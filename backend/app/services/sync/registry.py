@@ -4,6 +4,7 @@
 
 from typing import Dict
 from app.services.sync.handlers.base import BaseSyncHandler
+from app.services.sync.handlers.companies import CompanySyncHandler
 from app.services.sync.handlers.inventory_items import InventoryItemSyncHandler
 from app.services.sync.handlers.products import ProductSyncHandler
 from app.services.sync.handlers.product_categories import ProductCategorySyncHandler
@@ -17,6 +18,7 @@ from app.services.sync.handlers.users import UserSyncHandler
 from app.services.sync.handlers.zone_user_progress import ZoneUserProgressHandler
 
 SYNC_HANDLERS: Dict[str, BaseSyncHandler] = {
+    "companies": CompanySyncHandler(),
     "inventory_items": InventoryItemSyncHandler(),
     "products": ProductSyncHandler(),
     "product_categories": ProductCategorySyncHandler(),

@@ -29,7 +29,7 @@ class SyncPushResponse(BaseModel):
 # ======================================================
 
 class SyncBootstrapResponse(BaseModel):
-    company: Dict[str, Any]
+    companies: List[Dict[str, Any]]
     users: List[Dict[str, Any]]
     locations: List[Dict[str, Any]]
     product_categories: List[Dict[str, Any]]

@@ -21,21 +21,23 @@ class SyncPullService:
 
     def run(self) -> None:
         conn = get_connection()
+        try:
+            jwt_token = SessionService.get_jwt_token()
+            if not jwt_token:
+                raise RuntimeError("JWT token nÆo dispon¡vel para sync pull")
 
-        jwt_token = SessionService.get_jwt_token()
-        if not jwt_token:
-            raise RuntimeError("JWT token não disponível para sync pull")
+            since = get_meta("last_pull_at", conn)
 
-        since = get_meta("last_pull_at", conn)
+            params = {}
+            if since:
+                params["since"] = since
 
-        params = {}
-        if since:
-            params["since"] = since
+            payload = get(
+                "/v1/sync/pull",
+                jwt_token=jwt_token,
+                params=params,
+            )
 
-        payload = get(
-            "/v1/sync/pull",
-            jwt_token=jwt_token,
-            params=params,
-        )
-
-        apply_pull_payload(payload, conn)
+            apply_pull_payload(payload, conn)
+        finally:
+            conn.close()

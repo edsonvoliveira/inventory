@@ -13,16 +13,18 @@ class BootstrapService:
 
     def run(self) -> None:
         conn = get_connection()
+        try:
+            company_server_id = SessionService.get_company_server_id()
+            if not company_server_id:
+                raise RuntimeError("company_server_id nÆo definido para bootstrap")
 
-        company_server_id = SessionService.get_company_server_id()
-        if not company_server_id:
-            raise RuntimeError("company_server_id não definido para bootstrap")
+            # Bootstrap = pull FULL (sem since)
+            # Reset do marcador de pull incremental
+            set_meta("last_pull_at", "", conn)
 
-        # Bootstrap = pull FULL (sem since)
-        # Reset do marcador de pull incremental
-        set_meta("last_pull_at", "", conn)
+            SyncPullService().run()
 
-        SyncPullService().run()
-
-        # Marcar bootstrap concluído
-        set_meta("bootstrap_done", "1", conn)
+            # Marcar bootstrap conclu¡do
+            set_meta("bootstrap_done", "1", conn)
+        finally:
+            conn.close()

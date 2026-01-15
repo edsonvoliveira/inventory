@@ -1,6 +1,6 @@
 # backend/app/api/sync.py
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -29,7 +29,9 @@ async def sync_pull(
     company_id = _get_company_id(user)
 
     if since is None:
-        since = datetime(1970, 1, 1)
+        since = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    elif since.tzinfo is None:
+        since = since.replace(tzinfo=timezone.utc)
 
     return PullOrchestrator().run(
         since=since,

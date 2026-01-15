@@ -50,10 +50,13 @@ class InventoryItemSyncHandler(BaseSyncHandler):
         )
 
         if since is not None:
-            query = query.gte(
-                "updated_at",
-                since.astimezone(timezone.utc).isoformat()
-            )
+            if isinstance(since, datetime):
+                if since.tzinfo is None:
+                    since_utc = since.replace(tzinfo=timezone.utc)
+                else:
+                    since_utc = since.astimezone(timezone.utc)
+
+                query = query.gte("updated_at", since_utc.isoformat())
 
         result = query.execute()
         return cast(List[Dict[str, Any]], result.data or [])
