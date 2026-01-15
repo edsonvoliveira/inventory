@@ -179,6 +179,20 @@ def add_local_inventory_item(
                 0,
             ),
         )
+        payload = {
+            "zone_id": zone_id,
+            "product_id": product_id,
+            "qty_counted": qty_counted,
+            "device_timestamp": ts,
+            "source": "mobile",
+        }
+        conn.execute(
+            """
+            INSERT INTO outbox_local (table_name, operation, record_uuid, payload)
+            VALUES (?, ?, ?, ?)
+            """,
+            ("inventory_items", "insert", record_uuid, json.dumps(payload)),
+        )
         conn.commit()
 
 

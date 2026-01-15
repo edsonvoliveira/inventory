@@ -1,90 +1,92 @@
 # mobile_push_smoke.py
 
 import json
-import uuid
+import os
 from datetime import datetime, timezone
 
-from mobile.data.db.connection import get_connection
 from mobile.app_core_container import build_services
+from mobile.data.db.connection import get_connection
+from mobile.data.queries import add_local_inventory_item, reset_db
+from mobile.data.repositories.app_meta_repo import get_meta, set_meta
+
+
+def _require_env(name: str) -> str:
+    value = os.getenv(name, "").strip()
+    if not value:
+        raise SystemExit(f"Env {name} nao definido.")
+    return value
 
 
 def main() -> None:
-    conn = get_connection()
-    cur = conn.cursor()
+    base_url = _require_env("DV_SERVER_BASE_URL")
+    jwt_token = _require_env("E2E_JWT_TOKEN")
+    company_id = int(_require_env("E2E_COMPANY_SERVER_ID"))
+    company_uuid = os.getenv("E2E_COMPANY_UUID", f"server:{company_id}")
 
-    zone = cur.execute(
+    reset_db()
+    set_meta("dv_server_base_url", base_url)
+    set_meta("jwt_token", jwt_token)
+    set_meta("company_id", str(company_id))
+    set_meta("company_uuid", company_uuid)
+    set_meta("company_server_id", str(company_id))
+    set_meta("bootstrap_done", "false")
+
+    build_services().bootstrap.run()
+    last_pull_at = get_meta("last_pull_at")
+    if not last_pull_at:
+        raise SystemExit("Bootstrap executado, mas last_pull_at vazio.")
+
+    conn = get_connection()
+    zone = conn.execute(
         "SELECT server_id, event_server_id FROM zones_local LIMIT 1"
     ).fetchone()
-    user = cur.execute(
-        "SELECT server_id FROM users_local LIMIT 1"
-    ).fetchone()
-    product = cur.execute(
-        "SELECT server_id FROM products_local LIMIT 1"
-    ).fetchone()
+    user = conn.execute("SELECT server_id FROM users_local LIMIT 1").fetchone()
+    product = conn.execute("SELECT server_id FROM products_local LIMIT 1").fetchone()
+    conn.close()
 
     if not zone or not user:
-        raise SystemExit("Sem dados locais: rode o bootstrap/pull antes.")
+        raise SystemExit("Sem dados locais apos bootstrap.")
 
     zone_server_id, event_server_id = zone
-    user_server_id = user[0]
     product_server_id = product[0] if product else None
 
-    record_uuid = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
-
-    event_uuid = f"server:{event_server_id}"
-    zone_uuid = f"server:{zone_server_id}"
-    user_uuid = f"server:{user_server_id}"
-    product_uuid = f"server:{product_server_id}" if product_server_id else None
-
-    conn.execute(
-        """
-        INSERT INTO inventory_items_local (
-            uuid, event_uuid, event_server_id, zone_uuid, zone_server_id,
-            user_uuid, user_server_id, product_uuid, product_server_id,
-            qty_counted, device_timestamp, source, created_at, synced
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            record_uuid,
-            event_uuid,
-            event_server_id,
-            zone_uuid,
-            zone_server_id,
-            user_uuid,
-            user_server_id,
-            product_uuid,
-            product_server_id,
-            1,
-            now,
-            "mobile",
-            now,
-            0,
-        ),
+    add_local_inventory_item(
+        zone_id=zone_server_id,
+        event_id=event_server_id,
+        username="e2e",
+        scanned_code="E2E-TEST",
+        product_id=product_server_id,
+        qty_counted=1,
     )
 
-    payload = {
-        "zone_id": zone_server_id,
-        "product_id": product_server_id,
-        "qty_counted": 1,
-        "device_timestamp": now,
-        "source": "mobile",
-    }
+    conn = get_connection()
+    record_uuid = conn.execute(
+        "SELECT uuid FROM inventory_items_local ORDER BY created_at DESC LIMIT 1"
+    ).fetchone()[0]
+    conn.close()
 
+    accepted, failed = build_services().sync_push.run()
+    print(f"push accepted={accepted} failed={failed}")
+
+    build_services().sync_pull.run()
+
+    conn = get_connection()
     conn.execute(
         """
         INSERT INTO outbox_local (table_name, operation, record_uuid, payload)
         VALUES (?, ?, ?, ?)
         """,
-        ("inventory_items", "insert", record_uuid, json.dumps(payload)),
+        ("inventory_items", "delete", record_uuid, json.dumps({})),
     )
-
     conn.commit()
     conn.close()
 
     accepted, failed = build_services().sync_push.run()
-    print(f"push accepted={accepted} failed={failed}")
+    print(f"delete push accepted={accepted} failed={failed}")
+
+    build_services().sync_pull.run()
+
+    print("E2E mobile sync completo.")
 
 
 if __name__ == "__main__":

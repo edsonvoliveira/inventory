@@ -4,11 +4,12 @@ from typing import Optional
 
 from app_core.ports.session_port import SessionPort
 from desktop.core.session_service import SessionService
+from desktop.core.auth_session import AuthSession
 
 
 class DesktopSessionAdapter(SessionPort):
     def get_jwt_token(self) -> Optional[str]:
-        return SessionService.get_jwt_token()
+        return AuthSession().get_valid_access_token()
 
     def set_jwt_token(self, token: str) -> None:
         SessionService.set_jwt_token(token)

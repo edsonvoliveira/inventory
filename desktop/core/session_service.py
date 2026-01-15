@@ -28,6 +28,9 @@ class SessionService:
     """
 
     JWT_KEY = "jwt_token"
+    REFRESH_TOKEN_KEY = "refresh_token"
+    EXPIRES_AT_KEY = "expires_at"
+    EXPIRES_IN_KEY = "expires_in"
     COMPANY_SERVER_ID_KEY = "company_server_id"
     USER_SERVER_ID_KEY = "user_server_id"
 
@@ -52,8 +55,47 @@ class SessionService:
         conn = get_connection()
         try:
             set_meta(cls.JWT_KEY, "", conn)
+            set_meta(cls.REFRESH_TOKEN_KEY, "", conn)
+            set_meta(cls.EXPIRES_AT_KEY, "", conn)
+            set_meta(cls.EXPIRES_IN_KEY, "", conn)
             set_meta(cls.COMPANY_SERVER_ID_KEY, "", conn)
             set_meta(cls.USER_SERVER_ID_KEY, "", conn)
+        finally:
+            conn.close()
+
+    @classmethod
+    def set_auth_tokens(
+        cls,
+        access_token: str,
+        refresh_token: str,
+        expires_in: int | None,
+        expires_at: int | None,
+    ) -> None:
+        conn = get_connection()
+        try:
+            set_meta(cls.JWT_KEY, access_token, conn)
+            set_meta(cls.REFRESH_TOKEN_KEY, refresh_token, conn)
+            if expires_in is not None:
+                set_meta(cls.EXPIRES_IN_KEY, str(expires_in), conn)
+            if expires_at is not None:
+                set_meta(cls.EXPIRES_AT_KEY, str(expires_at), conn)
+        finally:
+            conn.close()
+
+    @classmethod
+    def get_refresh_token(cls) -> Optional[str]:
+        conn = get_connection()
+        try:
+            return get_meta(cls.REFRESH_TOKEN_KEY, conn)
+        finally:
+            conn.close()
+
+    @classmethod
+    def get_expires_at(cls) -> Optional[int]:
+        conn = get_connection()
+        try:
+            value = get_meta(cls.EXPIRES_AT_KEY, conn)
+            return int(value) if value and value.isdigit() else None
         finally:
             conn.close()
 

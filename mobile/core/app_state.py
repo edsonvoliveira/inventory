@@ -23,3 +23,4 @@ class AppState:
     theme: str = "dark"
     counted_product_ids_cache: set[int] = field(default_factory=set)
     items_counted: int = 0
+    sync_scheduler: object | None = None

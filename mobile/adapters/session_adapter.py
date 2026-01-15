@@ -4,11 +4,12 @@ from typing import Optional
 
 from app_core.ports.session_port import SessionPort
 from mobile.data.repositories.app_meta_repo import get_meta, set_meta
+from mobile.core.auth_session import AuthSession
 
 
 class MobileSessionAdapter(SessionPort):
     def get_jwt_token(self) -> Optional[str]:
-        return get_meta("jwt_token")
+        return AuthSession().get_valid_access_token()
 
     def set_jwt_token(self, token: str) -> None:
         set_meta("jwt_token", token)

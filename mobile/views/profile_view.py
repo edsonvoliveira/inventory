@@ -11,11 +11,21 @@ import flet as ft
 from mobile.core.app_state import AppState
 from mobile.core.navigation import ROUTES
 from mobile.core.theme import THEME, TOUCH
+from mobile.data.db.connection import get_connection
+from mobile.data.repositories.app_meta_repo import get_meta
 from mobile.utils.ui import toast
 
 
 def profile_content(page: ft.Page, state: AppState):
     prof = state.profile or {}
+    last_pull_at = get_meta("last_pull_at") or "n/a"
+    conn = get_connection()
+    try:
+        pending = conn.execute(
+            "SELECT COUNT(1) FROM outbox_local WHERE status = 'pending'"
+        ).fetchone()[0]
+    finally:
+        conn.close()
     user_card = ft.Card(
         ft.Container(
             ft.Column(
@@ -74,8 +84,24 @@ def profile_content(page: ft.Page, state: AppState):
         elevation=2,
     )
 
+    sync_card = ft.Card(
+        ft.Container(
+            ft.Column(
+                [
+                    ft.Text("Status de Sync", size=16),
+                    ft.Text(f"Ultimo pull: {last_pull_at}", size=14, color=THEME["text_secondary"]),
+                    ft.Text(f"Outbox pendente: {pending}", size=14, color=THEME["text_secondary"]),
+                ],
+                spacing=4,
+            ),
+            padding=12,
+        ),
+        margin=10,
+        elevation=2,
+    )
+
     return ft.Column(
-        [user_card, action_card, info_card],
+        [user_card, action_card, sync_card, info_card],
         spacing=12,
         expand=True,
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,

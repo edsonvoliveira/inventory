@@ -8,12 +8,17 @@ Responsibilities:
 
 from dataclasses import dataclass
 from typing import Optional
+import logging
 
 from desktop.app_core_container import build_services
+from desktop.core.auth_session import AuthSession
 from desktop.core.session_service import SessionService
 from desktop.core.bootstrap_service import BootstrapService
 from desktop.bootstrap.bootstrap import wipe_local_database
 from desktop.data.repositories.app_meta_repo import get_meta, set_meta
+import threading
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -29,6 +34,16 @@ class SyncService:
     def run(self) -> SyncResult:
         services = build_services()
         result = services.sync.run()
+        status = "ok" if not result.error else "error"
+        logger.info(
+            "event=sync_cycle action=sync status=%s did_bootstrap=%s push_accepted=%s push_failed=%s pulled=%s error=%s",
+            status,
+            result.did_bootstrap,
+            result.push_accepted,
+            result.push_failed,
+            result.pulled,
+            result.error,
+        )
         return SyncResult(
             did_bootstrap=result.did_bootstrap,
             push_accepted=result.push_accepted,
@@ -46,6 +61,7 @@ def ensure_bootstrap_for_company(company_id: int, company_uuid: str) -> bool:
         set_meta("company_id", str(company_id))
         set_meta("company_uuid", company_uuid)
         set_meta("bootstrap_done", "false")
+        SessionService.set_company_server_id(company_id)
         BootstrapService().run()
         return True
 
@@ -54,10 +70,12 @@ def ensure_bootstrap_for_company(company_id: int, company_uuid: str) -> bool:
         set_meta("company_id", str(company_id))
         set_meta("company_uuid", company_uuid)
         set_meta("bootstrap_done", "false")
+        SessionService.set_company_server_id(company_id)
         BootstrapService().run()
         return True
 
     if not bootstrap_done:
+        SessionService.set_company_server_id(company_id)
         BootstrapService().run()
         return True
 
@@ -71,3 +89,27 @@ def push_outbox_once(jwt_token: str) -> tuple[int, int]:
     SessionService.set_jwt_token(jwt_token)
     services = build_services()
     return services.sync_push.run()
+
+
+class SyncScheduler:
+    def __init__(self, interval_seconds: int = 180) -> None:
+        self._interval = interval_seconds
+        self._stop_event = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def start(self) -> None:
+        if self._thread and self._thread.is_alive():
+            return
+        self._stop_event.clear()
+        self._thread = threading.Thread(target=self._run_loop, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop_event.set()
+
+    def _run_loop(self) -> None:
+        while not self._stop_event.is_set():
+            token = AuthSession().get_valid_access_token()
+            if token:
+                SyncService().run()
+            self._stop_event.wait(self._interval)

@@ -62,9 +62,18 @@ def _migrate_to_3(conn) -> None:
     )
 
 
+def _migrate_to_4(conn) -> None:
+    conn.execute("ALTER TABLE outbox_local ADD COLUMN status TEXT DEFAULT 'pending'")
+    conn.execute("ALTER TABLE outbox_local ADD COLUMN max_attempts INTEGER DEFAULT 5")
+    conn.execute(
+        "UPDATE outbox_local SET status = 'pending' WHERE status IS NULL OR status = ''"
+    )
+
+
 MIGRATIONS: dict[int, Callable] = {
     2: _migrate_to_2,
     3: _migrate_to_3,
+    4: _migrate_to_4,
 }
 
 

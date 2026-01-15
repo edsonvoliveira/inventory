@@ -40,6 +40,8 @@ async def sync_pull(
         since = datetime(1970, 1, 1, tzinfo=timezone.utc)
     elif since.tzinfo is None:
         since = since.replace(tzinfo=timezone.utc)
+    else:
+        since = since.astimezone(timezone.utc)
 
     return PullOrchestrator().run(
         since=since,

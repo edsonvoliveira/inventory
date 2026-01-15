@@ -22,5 +22,6 @@ class BootstrapService:
             raise RuntimeError("company_server_id not set for bootstrap")
 
         self._app_meta_repo.set_meta("last_pull_at", "")
+        self._app_meta_repo.set_meta("bootstrap_done", "0")
         self._sync_pull_service.run()
         self._app_meta_repo.set_meta("bootstrap_done", "1")

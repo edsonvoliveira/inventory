@@ -37,9 +37,12 @@ def get_pending(limit: int = 100) -> list[dict]:
             operation,
             record_uuid,
             payload,
+            status,
             attempts,
+            max_attempts,
             last_error
         FROM outbox_local
+        WHERE status = 'pending'
         ORDER BY id
         LIMIT ?
         """,
@@ -54,8 +57,10 @@ def get_pending(limit: int = 100) -> list[dict]:
             "operation": r[2],
             "record_uuid": r[3],
             "payload": json.loads(r[4]),
-            "attempts": r[5],
-            "last_error": r[6],
+            "status": r[5],
+            "attempts": r[6],
+            "max_attempts": r[7],
+            "last_error": r[8],
         }
         for r in rows
     ]
@@ -77,14 +82,27 @@ def mark_success(ids: Iterable[int]) -> None:
 
 def mark_failed(outbox_id: int, error: str) -> None:
     conn = get_connection()
+    row = conn.execute(
+        "SELECT attempts, max_attempts FROM outbox_local WHERE id = ?",
+        (outbox_id,),
+    ).fetchone()
+    if not row:
+        conn.close()
+        return
+    attempts, max_attempts = row
+    new_attempts = (attempts or 0) + 1
+    is_dead = new_attempts >= (max_attempts or 0)
+    forced_dead = error.startswith("auth") or error.startswith("validation")
+    status = "error" if (is_dead or forced_dead) else "pending"
     conn.execute(
         """
         UPDATE outbox_local
-        SET attempts = attempts + 1,
+        SET attempts = ?,
+            status = ?,
             last_error = ?
         WHERE id = ?
         """,
-        (error, outbox_id),
+        (new_attempts, status, error, outbox_id),
     )
     conn.commit()
     conn.close()

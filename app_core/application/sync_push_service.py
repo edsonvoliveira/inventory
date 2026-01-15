@@ -10,6 +10,14 @@ from app_core.ports.sync_state_port import SyncStatePort
 SYNC_PUSH_ENDPOINT = "/v1/sync/push"
 
 
+def _classify_exception(exc: Exception) -> str:
+    msg = str(exc)
+    lowered = msg.lower()
+    if "401" in lowered or "403" in lowered or "jwt" in lowered:
+        return f"auth:{msg}"
+    return f"transient:{msg}"
+
+
 class SyncPushService:
     def __init__(
         self,
@@ -51,13 +59,15 @@ class SyncPushService:
                 json=payload,
             )
         except Exception as exc:
+            reason = _classify_exception(exc)
             for row in pending:
-                self._outbox.mark_failed(row["id"], str(exc))
+                self._outbox.mark_failed(row["id"], reason)
             return 0, len(pending)
 
         accepted_uuids = set(response.get("accepted", []))
         failed_uuids = set(response.get("failed", []))
-        rejected = response.get("rejected", {})
+        raw_rejected = response.get("rejected", {})
+        rejected = raw_rejected if isinstance(raw_rejected, dict) else {}
 
         accepted = 0
         failed = 0
@@ -77,9 +87,11 @@ class SyncPushService:
                 accepted += 1
             else:
                 if record_uuid in failed_uuids:
-                    reason = "server rejected"
+                    reason = "validation:server_rejected"
                 else:
                     reason = rejected.get(record_uuid, "unknown error")
+                    if reason and reason != "unknown error":
+                        reason = f"validation:{reason}"
                 self._outbox.mark_failed(outbox_id, reason)
                 failed += 1
 

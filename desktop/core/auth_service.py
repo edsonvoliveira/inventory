@@ -6,6 +6,10 @@ Responsibilities:
 - Coordinate related operations and dependencies.
 """
 
+from desktop.core.auth_session import AuthSession
+
+
 class AuthService:
     def authenticate(self, email: str, password: str) -> bool:
-        return email == "admin" and password == "123"
+        AuthSession().login(email, password)
+        return True

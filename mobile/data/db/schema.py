@@ -6,7 +6,7 @@ Responsibilities:
 - Provide SQL statements for setup.
 """
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 SCHEMA_SQL = """
 PRAGMA foreign_keys = ON;
@@ -339,7 +339,9 @@ CREATE TABLE IF NOT EXISTS outbox_local (
 
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
 
+  status TEXT DEFAULT 'pending',
   attempts INTEGER DEFAULT 0,
+  max_attempts INTEGER DEFAULT 5,
   last_error TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_outbox_local_table_op ON outbox_local(table_name, operation);
