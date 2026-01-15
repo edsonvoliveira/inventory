@@ -1,5 +1,13 @@
 # backend/app/core/security.py
 
+"""
+Responsibilities:
+- Core module for security.
+- Provide shared application logic.
+"""
+
+# backend/app/core/security.py
+
 from dataclasses import dataclass
 import httpx
 from fastapi import Depends, HTTPException, status

@@ -1,10 +1,9 @@
 # desktop/data/repositories/inventory_event_targets_repo.py
 
 """
-Responsabilities:
-- Repository for inventory event targets entity
-- Inherits basic CRUD, outbox, and sync from BaseRepo
-- Configured via RepoConfig for inventory event targets-specific behavior
+Responsibilities:
+- Repository for inventory event targets data.
+- Define persistence and sync behavior.
 """
 
 from desktop.data.repositories.base_repo import BaseRepo, RepoConfig

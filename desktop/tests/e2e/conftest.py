@@ -1,5 +1,13 @@
 # desktop/tests/e2e/conftest.py
 
+"""
+Responsibilities:
+- Define pytest fixtures for this test scope.
+- Configure test environment setup and teardown.
+"""
+
+# desktop/tests/e2e/conftest.py
+
 import os
 import sqlite3
 from dataclasses import dataclass

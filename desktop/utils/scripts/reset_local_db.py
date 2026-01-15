@@ -1,3 +1,11 @@
+# desktop/utils/scripts/reset_local_db.py
+
+"""
+Responsibilities:
+- Utility helpers for reset local db.
+- Provide shared helper functions.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path

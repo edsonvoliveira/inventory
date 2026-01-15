@@ -1,3 +1,11 @@
+# desktop/core/theme.py
+
+"""
+Responsibilities:
+- Core module for theme.
+- Provide shared application logic.
+"""
+
 from dataclasses import dataclass
 
 import flet as ft

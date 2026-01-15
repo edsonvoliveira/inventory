@@ -1,5 +1,12 @@
 # backend/tests/integration/handlers/test_zone_user_progress_handler.py
 
+"""
+Responsibilities:
+- Test zone user progress handler behavior.
+"""
+
+# backend/tests/integration/handlers/test_zone_user_progress_handler.py
+
 import os
 import importlib
 from uuid import uuid4

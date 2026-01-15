@@ -1,3 +1,11 @@
+# desktop/core/app_state.py
+
+"""
+Responsibilities:
+- Core module for app state.
+- Provide shared application logic.
+"""
+
 from dataclasses import dataclass
 
 

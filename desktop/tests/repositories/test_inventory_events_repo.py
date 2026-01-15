@@ -1,3 +1,10 @@
+# desktop/tests/repositories/test_inventory_events_repo.py
+
+"""
+Responsibilities:
+- Test inventory events repo behavior.
+"""
+
 #desktop/tests/repositories/test_inventory_events_repo.py
 
 """

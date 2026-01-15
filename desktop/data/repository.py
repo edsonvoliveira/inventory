@@ -1,3 +1,10 @@
+# desktop/data/repository.py
+
+"""
+Responsibilities:
+- Module responsibilities not classified.
+"""
+
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4

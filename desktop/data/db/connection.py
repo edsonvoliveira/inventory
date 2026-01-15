@@ -1,10 +1,9 @@
-# data/db/connection.py
+# desktop/data/db/connection.py
 
-""""
-Responsabilities:
-- Provide a connection to the local SQLite database
-- Use DB_PATH from settings
-- Encapsulate connection logic for reuse
+"""
+Responsibilities:
+- Create and return database connections.
+- Centralize DB connection handling.
 """
 
 import sqlite3

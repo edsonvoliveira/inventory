@@ -1,3 +1,10 @@
+# desktop/tests/bootstrap/test_dv_server_ping.py
+
+"""
+Responsibilities:
+- Test dv server ping behavior.
+"""
+
 from desktop.core.http_client import get
 from desktop.config.settings import SYNC_BOOTSTRAP_ENDPOINT
 

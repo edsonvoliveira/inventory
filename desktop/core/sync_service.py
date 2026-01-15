@@ -1,11 +1,9 @@
 # desktop/core/sync_service.py
+
 """
-Master synchronization orchestrator.
 Responsibilities:
-- Validate context (JWT / company)
-- Decide between bootstrap and incremental sync
-- Execute push and pull in the correct order
-- Return results to logs/UI
+- Service layer for sync workflows.
+- Coordinate related operations and dependencies.
 """
 
 from dataclasses import dataclass

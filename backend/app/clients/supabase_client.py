@@ -1,3 +1,11 @@
+# backend/app/clients/supabase_client.py
+
+"""
+Responsibilities:
+- Client factory for supabase client services.
+- Provide configured client instances.
+"""
+
 from supabase import create_client, Client
 from app.core.config import settings
 

@@ -1,3 +1,11 @@
+# desktop/utils/dialogs.py
+
+"""
+Responsibilities:
+- Utility helpers for dialogs.
+- Provide shared helper functions.
+"""
+
 import flet as ft
 
 from desktop.core.strings import BTN_CANCEL

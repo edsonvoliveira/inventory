@@ -1,3 +1,11 @@
+# mobile/core/scanner/camera_scanner.py
+
+"""
+Responsibilities:
+- Core module for camera scanner.
+- Provide shared application logic.
+"""
+
 # scanner.py
 import threading
 import time

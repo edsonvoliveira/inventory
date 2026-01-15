@@ -1,4 +1,12 @@
 # mobile/data/repositories/app_meta_repo.py
+
+"""
+Responsibilities:
+- Repository for app meta data.
+- Define persistence and sync behavior.
+"""
+
+# mobile/data/repositories/app_meta_repo.py
 from mobile.data.db.connection import get_connection
 
 def get_meta(key: str):

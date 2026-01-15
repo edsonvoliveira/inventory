@@ -1,10 +1,9 @@
 # desktop/data/repositories/zone_user_progress_repo.py
 
 """
-Responsabilities:
-- Repository for zone_user_progress entity
-- Inherits basic CRUD, outbox, and sync from BaseRepo
-- Configured via RepoConfig for zone_user_progress-specific behavior
+Responsibilities:
+- Repository for zone user progress data.
+- Define persistence and sync behavior.
 """
 
 from desktop.data.repositories.base_repo import BaseRepo, RepoConfig

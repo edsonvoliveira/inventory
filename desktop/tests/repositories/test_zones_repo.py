@@ -1,3 +1,10 @@
+# desktop/tests/repositories/test_zones_repo.py
+
+"""
+Responsibilities:
+- Test zones repo behavior.
+"""
+
 #desktop/tests/repositories/test_zones_repo.py
 
 """

@@ -1,3 +1,11 @@
+# desktop/views/management/company_view.py
+
+"""
+Responsibilities:
+- Render the company view.
+- Wire UI events and interactions.
+"""
+
 import flet as ft
 
 from desktop.core.ui_constants import ICON_ADD, ICON_DELETE, ICON_EDIT

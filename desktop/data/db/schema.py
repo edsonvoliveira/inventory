@@ -1,14 +1,9 @@
 # desktop/data/db/schema.py
 
 """
-Responsabilidade:
-- Definir todo o schema SQLite Desktop
-- Desktop como System of Record (SoR)
-- Server como autoridade apenas para identity (companies, users)
-- Offline-first + Sync assíncrono
-- Cache local completo
-- Outbox para Sync Push
-- Suporte a Sync Pull incremental
+Responsibilities:
+- Define database schema and versioning.
+- Provide SQL statements for setup.
 """
 
 SCHEMA_VERSION = 5

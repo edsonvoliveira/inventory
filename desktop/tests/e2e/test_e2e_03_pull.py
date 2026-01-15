@@ -1,5 +1,12 @@
 # desktop/tests/e2e/test_e2e_03_pull.py
 
+"""
+Responsibilities:
+- Test e2e 03 pull behavior.
+"""
+
+# desktop/tests/e2e/test_e2e_03_pull.py
+
 from desktop.core.bootstrap_service import BootstrapService
 from desktop.core.sync_pull_service import SyncPullService
 from desktop.data.repositories.products_repo import ProductsRepo

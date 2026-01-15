@@ -1,5 +1,13 @@
 # backend/app/services/sync/handlers/inventory_items.py
 
+"""
+Responsibilities:
+- Sync handler for inventory items entities.
+- Implement pull and push operations.
+"""
+
+# backend/app/services/sync/handlers/inventory_items.py
+
 from datetime import datetime, timezone
 from typing import cast, Dict, Any, List, Optional
 

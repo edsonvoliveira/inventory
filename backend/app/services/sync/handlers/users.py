@@ -1,5 +1,13 @@
 # backend/app/services/sync/handlers/users.py
 
+"""
+Responsibilities:
+- Sync handler for users entities.
+- Implement pull and push operations.
+"""
+
+# backend/app/services/sync/handlers/users.py
+
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 

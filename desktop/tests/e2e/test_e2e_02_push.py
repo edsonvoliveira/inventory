@@ -1,5 +1,12 @@
 # desktop/tests/e2e/test_e2e_02_push.py
 
+"""
+Responsibilities:
+- Test e2e 02 push behavior.
+"""
+
+# desktop/tests/e2e/test_e2e_02_push.py
+
 from uuid import uuid4
 
 from desktop.core.sync_push_service import SyncPushService

@@ -1,3 +1,11 @@
+# desktop/core/router.py
+
+"""
+Responsibilities:
+- Core module for router.
+- Provide shared application logic.
+"""
+
 import flet as ft
 
 from desktop.core.app_state import AppState

@@ -1,10 +1,9 @@
 # desktop/data/repositories/product_barcodes_repo.py
 
 """
-Responsabilities:
-- Repository for product_barcodes entity
-- Inherits basic CRUD, outbox, and sync from BaseRepo
-- Configured via RepoConfig for product_barcodes-specific behavior
+Responsibilities:
+- Repository for product barcodes data.
+- Define persistence and sync behavior.
 """
 
 from desktop.data.repositories.base_repo import BaseRepo, RepoConfig

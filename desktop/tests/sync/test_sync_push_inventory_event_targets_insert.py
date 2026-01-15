@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_inventory_event_targets_insert.py
+
+"""
+Responsibilities:
+- Test sync push inventory event targets insert behavior.
+"""
+
 # desktop/tests/test_sync_push_inventory_event_targets_insert.py
 
 import uuid

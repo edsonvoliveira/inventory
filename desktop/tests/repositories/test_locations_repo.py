@@ -1,3 +1,10 @@
+# desktop/tests/repositories/test_locations_repo.py
+
+"""
+Responsibilities:
+- Test locations repo behavior.
+"""
+
 #desktop/tests/repositories/test_locations_repo.py
 
 """

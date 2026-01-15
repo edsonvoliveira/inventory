@@ -1,3 +1,11 @@
+# desktop/views/settings/config_view.py
+
+"""
+Responsibilities:
+- Render the config view.
+- Wire UI events and interactions.
+"""
+
 import flet as ft
 
 from desktop.core.strings import CONFIG_SUBTITLE, CONFIG_TITLE

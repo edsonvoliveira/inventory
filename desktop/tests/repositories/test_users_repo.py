@@ -1,3 +1,10 @@
+# desktop/tests/repositories/test_users_repo.py
+
+"""
+Responsibilities:
+- Test users repo behavior.
+"""
+
 #desktop/tests/repositories/test_users_repo.py
 
 """

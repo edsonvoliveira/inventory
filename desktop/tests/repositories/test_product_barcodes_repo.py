@@ -1,3 +1,10 @@
+# desktop/tests/repositories/test_product_barcodes_repo.py
+
+"""
+Responsibilities:
+- Test product barcodes repo behavior.
+"""
+
 #desktop/tests/repositories/test_product_barcodes_repo.py
 
 """

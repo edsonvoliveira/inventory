@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_users_insert.py
+
+"""
+Responsibilities:
+- Test sync push users insert behavior.
+"""
+
 # desktop/tests/test_sync_push_users_insert.py
 
 

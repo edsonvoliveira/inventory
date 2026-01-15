@@ -1,3 +1,11 @@
+# desktop/widgets/side_menu.py
+
+"""
+Responsibilities:
+- Reusable UI widget for side menu.
+- Expose UI controls and styling hooks.
+"""
+
 import flet as ft
 
 from desktop.core.theme import ThemeTokens

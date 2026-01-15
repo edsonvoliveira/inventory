@@ -1,3 +1,10 @@
+# desktop/tests/core/sync/test_apply_pull_payload.py
+
+"""
+Responsibilities:
+- Test apply pull payload behavior.
+"""
+
 #desktop/tests/core/sync/test_apply_pull_payload.py
 
 from desktop.core.sync.apply_pull_payload import apply_pull_payload

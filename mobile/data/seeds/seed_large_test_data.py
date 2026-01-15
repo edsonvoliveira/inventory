@@ -1,3 +1,10 @@
+# mobile/data/seeds/seed_large_test_data.py
+
+"""
+Responsibilities:
+- Module responsibilities not classified.
+"""
+
 # data_tests_large.py
 import sqlite3
 import random

@@ -1,3 +1,11 @@
+# mobile/data/repositories/zones_repo.py
+
+"""
+Responsibilities:
+- Repository for zones data.
+- Define persistence and sync behavior.
+"""
+
 from mobile.data.db.connection import get_connection
 
 

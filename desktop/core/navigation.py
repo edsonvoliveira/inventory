@@ -1,3 +1,11 @@
+# desktop/core/navigation.py
+
+"""
+Responsibilities:
+- Core module for navigation.
+- Provide shared application logic.
+"""
+
 import flet as ft
 
 from desktop.core.strings import (

@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_users_delete.py
+
+"""
+Responsibilities:
+- Test sync push users delete behavior.
+"""
+
 # desktop/tests/test_sync_push_users_delete.py
 
 from desktop.core.http_client import post

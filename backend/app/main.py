@@ -1,3 +1,12 @@
+# backend/app/main.py
+
+"""
+Responsibilities:
+- FastAPI application entry point.
+- Configure middleware and routers.
+- Expose the ASGI app for the server.
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

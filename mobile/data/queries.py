@@ -1,3 +1,10 @@
+# mobile/data/queries.py
+
+"""
+Responsibilities:
+- Module responsibilities not classified.
+"""
+
 import json
 import os
 import sqlite3

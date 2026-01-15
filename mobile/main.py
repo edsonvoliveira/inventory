@@ -1,3 +1,14 @@
+# mobile/main.py
+
+"""
+Responsibilities:
+- Mobile application entry point.
+- Initialize app state and services.
+- Set up the main UI layout.
+- Handle routing and authentication.
+- Start the Flet application.
+"""
+
 #mobile/main.py
 
 import flet as ft

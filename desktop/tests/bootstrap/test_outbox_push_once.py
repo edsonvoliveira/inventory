@@ -1,3 +1,10 @@
+# desktop/tests/bootstrap/test_outbox_push_once.py
+
+"""
+Responsibilities:
+- Test outbox push once behavior.
+"""
+
 # desktop/tests/test_outbox_push_once.py
 
 import uuid

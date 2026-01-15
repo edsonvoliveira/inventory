@@ -1,5 +1,9 @@
+# mobile/data/schema.py
+
 """
-Re-export schema from data.db.schema to keep a single source of truth.
+Responsibilities:
+- Define database schema and versioning.
+- Provide SQL statements for setup.
 """
 
 from data.db.schema import SCHEMA_SQL, SCHEMA_VERSION

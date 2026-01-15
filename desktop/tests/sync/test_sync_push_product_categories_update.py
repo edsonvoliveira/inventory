@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_product_categories_update.py
+
+"""
+Responsibilities:
+- Test sync push product categories update behavior.
+"""
+
 # desktop/tests/test_sync_push_product_categories_update.py
 
 from desktop.core.http_client import post

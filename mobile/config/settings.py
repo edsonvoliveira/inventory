@@ -1,4 +1,12 @@
 # mobile/config/settings.py
+
+"""
+Responsibilities:
+- Define configuration constants.
+- Read environment-driven settings.
+"""
+
+# mobile/config/settings.py
 import os
 
 # Define the base directory for the mobile application

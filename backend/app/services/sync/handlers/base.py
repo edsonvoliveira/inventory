@@ -1,5 +1,13 @@
 # backend/app/services/sync/handlers/base.py
 
+"""
+Responsibilities:
+- Sync handler for base entities.
+- Implement pull and push operations.
+"""
+
+# backend/app/services/sync/handlers/base.py
+
 # classe base genérica para handlers de sync
 
 from abc import ABC, abstractmethod

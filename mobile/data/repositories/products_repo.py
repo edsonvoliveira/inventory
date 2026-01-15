@@ -1,3 +1,11 @@
+# mobile/data/repositories/products_repo.py
+
+"""
+Responsibilities:
+- Repository for products data.
+- Define persistence and sync behavior.
+"""
+
 from mobile.data.db.connection import get_connection
 
 def replace_all(rows: list[dict]):

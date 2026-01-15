@@ -1,11 +1,9 @@
-# bootstrap/bootstrap.py
+# desktop/bootstrap/bootstrap.py
+
 """
-Responsabilidade:
-- Criar DB se não existir
-- Aplicar schema.py
-- Inicializar app_meta mínimo
-- Nada de sync
-- Nada de UI
+Responsibilities:
+- Initialize local database and schema.
+- Provide bootstrap and reset helpers.
 """
 
 import os

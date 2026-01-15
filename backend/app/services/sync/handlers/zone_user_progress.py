@@ -1,3 +1,11 @@
+# backend/app/services/sync/handlers/zone_user_progress.py
+
+"""
+Responsibilities:
+- Sync handler for zone user progress entities.
+- Implement pull and push operations.
+"""
+
 #backend/app/services/sync/handlers/zone_user_progress.py
 
 from typing import Any, Dict, List, Optional

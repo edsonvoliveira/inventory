@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_devices_delete.py
+
+"""
+Responsibilities:
+- Test sync push devices delete behavior.
+"""
+
 # desktop/tests/test_sync_push_devices_delete.py
 
 from desktop.core.http_client import post

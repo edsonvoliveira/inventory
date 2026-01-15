@@ -1,3 +1,10 @@
+# desktop/tests/repositories/test_devices_repo.py
+
+"""
+Responsibilities:
+- Test devices repo behavior.
+"""
+
 #desktop/tests/repositories/test_devices_repo.py
 
 """

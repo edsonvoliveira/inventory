@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_zones_insert.py
+
+"""
+Responsibilities:
+- Test sync push zones insert behavior.
+"""
+
 # desktop/tests/test_sync_push_zones_insert.py
 
 from desktop.core.http_client import post

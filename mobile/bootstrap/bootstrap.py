@@ -1,4 +1,12 @@
 # mobile/bootstrap/bootstrap.py
+
+"""
+Responsibilities:
+- Initialize local database and schema.
+- Provide bootstrap and reset helpers.
+"""
+
+# mobile/bootstrap/bootstrap.py
 import os
 from mobile.data.db.connection import get_connection
 from mobile.data.db.schema import SCHEMA_SQL, SCHEMA_VERSION

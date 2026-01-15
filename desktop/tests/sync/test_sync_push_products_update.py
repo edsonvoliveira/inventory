@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_products_update.py
+
+"""
+Responsibilities:
+- Test sync push products update behavior.
+"""
+
 # desktop/tests/test_sync_push_products_update.py
 
 from desktop.core.http_client import post

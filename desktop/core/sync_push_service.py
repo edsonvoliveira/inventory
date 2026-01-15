@@ -1,10 +1,9 @@
 # desktop/core/sync_push_service.py
+
 """
 Responsibilities:
-- Orchestrating sync push
-- Getting last sync timestamp (last_pull_at)
-- Call endpoint and call apply pull payload
-- Update meta
+- Service layer for sync push workflows.
+- Coordinate related operations and dependencies.
 """
 
 from datetime import datetime, timezone

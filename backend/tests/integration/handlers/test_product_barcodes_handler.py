@@ -1,5 +1,12 @@
 # backend/tests/integration/handlers/test_product_barcodes_handler.py
 
+"""
+Responsibilities:
+- Test product barcodes handler behavior.
+"""
+
+# backend/tests/integration/handlers/test_product_barcodes_handler.py
+
 import os
 import importlib
 from uuid import uuid4

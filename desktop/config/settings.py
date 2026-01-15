@@ -1,5 +1,13 @@
 # desktop/config/settings.py
 
+"""
+Responsibilities:
+- Define configuration constants.
+- Read environment-driven settings.
+"""
+
+# desktop/config/settings.py
+
 import os
 
 # Define the base directory for the desktop application

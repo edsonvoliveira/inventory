@@ -1,3 +1,10 @@
+# desktop/tests/helpers/db.py
+
+"""
+Responsibilities:
+- Test db behavior.
+"""
+
 #desktop/tests/helpers/db.py
 
 """

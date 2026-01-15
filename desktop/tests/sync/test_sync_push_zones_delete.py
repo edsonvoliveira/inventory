@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_zones_delete.py
+
+"""
+Responsibilities:
+- Test sync push zones delete behavior.
+"""
+
 # desktop/tests/test_sync_push_zones_delete.py
 
 from desktop.core.http_client import post

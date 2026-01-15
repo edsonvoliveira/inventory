@@ -1,3 +1,11 @@
+# backend/app/api/auth.py
+
+"""
+Responsibilities:
+- API routes for auth endpoints.
+- Handle request validation and responses.
+"""
+
 #backend/app/api/auth.py
 
 from fastapi import APIRouter, Depends

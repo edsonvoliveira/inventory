@@ -1,3 +1,11 @@
+# mobile/core/theme.py
+
+"""
+Responsibilities:
+- Core module for theme.
+- Provide shared application logic.
+"""
+
 THEME = {
     "primary": "#2E6FBA",
     "accent": "#E1A84F",

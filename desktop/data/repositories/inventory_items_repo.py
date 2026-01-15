@@ -1,10 +1,9 @@
 # desktop/data/repositories/inventory_items_repo.py
 
 """
-Responsabilities:
-- Repository for inventory_items entity
-- Inherits basic CRUD, outbox, and sync from BaseRepo
-- Configured via RepoConfig for inventory_items-specific behavior
+Responsibilities:
+- Repository for inventory items data.
+- Define persistence and sync behavior.
 """
 
 from desktop.data.repositories.base_repo import BaseRepo, RepoConfig

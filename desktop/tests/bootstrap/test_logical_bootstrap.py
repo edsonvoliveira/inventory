@@ -1,3 +1,10 @@
+# desktop/tests/bootstrap/test_logical_bootstrap.py
+
+"""
+Responsibilities:
+- Test logical bootstrap behavior.
+"""
+
 from desktop.bootstrap.bootstrap import bootstrap_app
 from desktop.core.sync_service import ensure_bootstrap_for_company
 from desktop.data.repositories.app_meta_repo import get_meta

@@ -1,3 +1,11 @@
+# backend/tests/conftest.py
+
+"""
+Responsibilities:
+- Define pytest fixtures for this test scope.
+- Configure test environment setup and teardown.
+"""
+
 #backend/tests/conftest.py
 
 import os

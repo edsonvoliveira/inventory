@@ -1,3 +1,11 @@
+# mobile/core/navigation.py
+
+"""
+Responsibilities:
+- Core module for navigation.
+- Provide shared application logic.
+"""
+
 ROUTES = {
     "login": "/login",
     "dashboard": "/dashboard",

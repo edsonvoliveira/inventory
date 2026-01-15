@@ -1,11 +1,11 @@
 # desktop/core/sync_pull_service.py
+
 """
-Responsabilities:
-- Orchestrating sync pull
-- Getting last sync timestamp (last_pull_at)
-- Call endpoint and call apply pull payload
-- Update meta
+Responsibilities:
+- Service layer for sync pull workflows.
+- Coordinate related operations and dependencies.
 """
+
 from desktop.core.http_client import get
 from desktop.core.sync.apply_pull_payload import apply_pull_payload
 from desktop.data.repositories.app_meta_repo import get_meta

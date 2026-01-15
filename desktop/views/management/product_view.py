@@ -1,3 +1,11 @@
+# desktop/views/management/product_view.py
+
+"""
+Responsibilities:
+- Render the product view.
+- Wire UI events and interactions.
+"""
+
 import flet as ft
 from datetime import datetime
 

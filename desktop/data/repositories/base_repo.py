@@ -1,3 +1,11 @@
+# desktop/data/repositories/base_repo.py
+
+"""
+Responsibilities:
+- Repository for base data.
+- Define persistence and sync behavior.
+"""
+
 #desktop/data/repositories/base_repo.py
 
 """

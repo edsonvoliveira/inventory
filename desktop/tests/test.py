@@ -1,3 +1,10 @@
+# desktop/tests/test.py
+
+"""
+Responsibilities:
+- Test test behavior.
+"""
+
 import flet as ft
 
 def main(page: ft.Page):

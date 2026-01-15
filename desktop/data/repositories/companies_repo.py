@@ -1,11 +1,9 @@
 # desktop/data/repositories/companies_repo.py
 
 """
-Responsabilities:
-- Repository for companies entity
-- Inherits basic CRUD, outbox, and sync from BaseRepo
-- Configured via RepoConfig for companies-specific behavior
-- Companies do not allow offline creation via UI
+Responsibilities:
+- Repository for companies data.
+- Define persistence and sync behavior.
 """
 
 from desktop.data.repositories.base_repo import BaseRepo, RepoConfig

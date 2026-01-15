@@ -1,4 +1,12 @@
 # mobile/core/sync_service.py
+
+"""
+Responsibilities:
+- Service layer for sync workflows.
+- Coordinate related operations and dependencies.
+"""
+
+# mobile/core/sync_service.py
 from datetime import datetime
 
 from mobile.bootstrap.bootstrap import wipe_local_database

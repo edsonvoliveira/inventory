@@ -1,5 +1,13 @@
 # desktop/core/bootstrap_service.py
 
+"""
+Responsibilities:
+- Service layer for bootstrap workflows.
+- Coordinate related operations and dependencies.
+"""
+
+# desktop/core/bootstrap_service.py
+
 from desktop.core.sync_pull_service import SyncPullService
 from desktop.core.session_service import SessionService
 from desktop.data.repositories.app_meta_repo import set_meta

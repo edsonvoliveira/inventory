@@ -1,5 +1,13 @@
 # backend/app/services/sync/handlers/products.py
 
+"""
+Responsibilities:
+- Sync handler for products entities.
+- Implement pull and push operations.
+"""
+
+# backend/app/services/sync/handlers/products.py
+
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 

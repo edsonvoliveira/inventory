@@ -1,3 +1,11 @@
+# mobile/data/repositories/event_targets_repo.py
+
+"""
+Responsibilities:
+- Repository for event targets data.
+- Define persistence and sync behavior.
+"""
+
 from mobile.data.db.connection import get_connection
 
 

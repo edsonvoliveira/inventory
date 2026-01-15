@@ -1,18 +1,9 @@
 # mobile/data/db/schema.py
 
 """
-Responsabilities:
-- Define entire SQLite Mobile schema
-- Mobile as offline-first client with local cache
-- Local cache (offline-first)
-- Outbox for Sync Push
-- Support incremental Sync Pull
-- Include:
-    - app_meta
-    - minimal read-only cache tables
-    - offline operation tables (write)
-    - outbox_local
-- Define SCHEMA_VERSION
+Responsibilities:
+- Define database schema and versioning.
+- Provide SQL statements for setup.
 """
 
 SCHEMA_VERSION = 2

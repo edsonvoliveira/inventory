@@ -1,3 +1,11 @@
+# mobile/data/repositories/events_repo.py
+
+"""
+Responsibilities:
+- Repository for events data.
+- Define persistence and sync behavior.
+"""
+
 from mobile.data.db.connection import get_connection
 
 

@@ -1,5 +1,12 @@
 # desktop/tests/e2e/test_e2e_05_company_switch.py
 
+"""
+Responsibilities:
+- Test e2e 05 company switch behavior.
+"""
+
+# desktop/tests/e2e/test_e2e_05_company_switch.py
+
 from desktop.core.bootstrap_service import BootstrapService
 from desktop.core.session_service import SessionService
 from desktop.core.sync_pull_service import SyncPullService

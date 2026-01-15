@@ -1,3 +1,11 @@
+# desktop/core/db_lifecycle.py
+
+"""
+Responsibilities:
+- Core module for db lifecycle.
+- Provide shared application logic.
+"""
+
 #desktop/core/db_lifecycle.py
 
 """

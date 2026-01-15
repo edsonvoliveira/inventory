@@ -1,5 +1,12 @@
 # desktop/tests/e2e/test_e2e_06_resilience.py
 
+"""
+Responsibilities:
+- Test e2e 06 resilience behavior.
+"""
+
+# desktop/tests/e2e/test_e2e_06_resilience.py
+
 from desktop.core.bootstrap_service import BootstrapService
 from desktop.core.sync_pull_service import SyncPullService
 from desktop.core.sync_push_service import SyncPushService

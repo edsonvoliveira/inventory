@@ -1,11 +1,9 @@
 # desktop/data/repositories/users_repo.py
 
 """
-Responsabilities:
-- Repository for users entity
-- Inherits basic CRUD, outbox, and sync from BaseRepo
-- Configured via RepoConfig for users-specific behavior
-- Users do not participate in sync push operations
+Responsibilities:
+- Repository for users data.
+- Define persistence and sync behavior.
 """
 
 from desktop.data.repositories.base_repo import BaseRepo, RepoConfig

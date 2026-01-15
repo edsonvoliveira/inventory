@@ -1,3 +1,10 @@
+# mobile/tests/test_wipe.py
+
+"""
+Responsibilities:
+- Test wipe behavior.
+"""
+
 from mobile.bootstrap.bootstrap import bootstrap_app, wipe_local_database
 from mobile.data.repositories.app_meta_repo import get_meta, set_meta
 from mobile.config.settings import DB_PATH

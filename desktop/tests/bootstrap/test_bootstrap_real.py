@@ -1,3 +1,10 @@
+# desktop/tests/bootstrap/test_bootstrap_real.py
+
+"""
+Responsibilities:
+- Test bootstrap real behavior.
+"""
+
 from desktop.core.bootstrap_service import run_bootstrap
 from desktop.data.repositories.app_meta_repo import get_meta
 

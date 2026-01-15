@@ -1,3 +1,11 @@
+# backend/app/services/sync/handlers/_helpers.py
+
+"""
+Responsibilities:
+- Sync handler for helpers entities.
+- Implement pull and push operations.
+"""
+
 #backend/app/services/sync/handlers/_helpers.py
 
 from typing import Any

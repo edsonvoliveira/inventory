@@ -1,3 +1,10 @@
+# desktop/tests/repositories/test_product_categories_repo.py
+
+"""
+Responsibilities:
+- Test product categories repo behavior.
+"""
+
 #desktop/tests/repositories/test_product_categories_repo.py
 
 """

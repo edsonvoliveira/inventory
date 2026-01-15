@@ -1,3 +1,10 @@
+# desktop/tests/repositories/test_companies_repo.py
+
+"""
+Responsibilities:
+- Test companies repo behavior.
+"""
+
 #desktop/tests/repositories/test_companies_repo.py
 
 """

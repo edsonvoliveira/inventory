@@ -1,5 +1,12 @@
 # backend/tests/integration/handlers/test_inventory_events_handler.py
 
+"""
+Responsibilities:
+- Test inventory events handler behavior.
+"""
+
+# backend/tests/integration/handlers/test_inventory_events_handler.py
+
 import os
 import importlib
 from uuid import uuid4

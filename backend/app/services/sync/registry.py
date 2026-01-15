@@ -1,5 +1,13 @@
 # backend/app/services/sync/registry.py
 
+"""
+Responsibilities:
+- Sync service component for registry.
+- Coordinate sync workflow steps.
+"""
+
+# backend/app/services/sync/registry.py
+
 # mapa table_name → handler
 
 from typing import Dict

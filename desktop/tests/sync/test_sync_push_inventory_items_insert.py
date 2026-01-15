@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_inventory_items_insert.py
+
+"""
+Responsibilities:
+- Test sync push inventory items insert behavior.
+"""
+
 # desktop/tests/test_sync_push_inventory_items_insert.py
 
 from desktop.core.http_client import post

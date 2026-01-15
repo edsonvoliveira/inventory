@@ -1,3 +1,11 @@
+# desktop/core/sync/apply_pull_payload.py
+
+"""
+Responsibilities:
+- Core module for apply pull payload.
+- Provide shared application logic.
+"""
+
 #desktop/core/sync/apply_pull_payload.py
 """
 Responsibilities:

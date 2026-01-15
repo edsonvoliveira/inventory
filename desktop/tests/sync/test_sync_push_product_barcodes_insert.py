@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_product_barcodes_insert.py
+
+"""
+Responsibilities:
+- Test sync push product barcodes insert behavior.
+"""
+
 # desktop/tests/test_sync_push_product_barcodes_insert.py
 
 from desktop.core.http_client import post

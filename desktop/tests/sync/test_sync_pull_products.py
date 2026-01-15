@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_pull_products.py
+
+"""
+Responsibilities:
+- Test sync pull products behavior.
+"""
+
 # desktop/tests/test_sync_pull_products.py
 
 from desktop.core.sync_pull_service import pull_once

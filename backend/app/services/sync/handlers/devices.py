@@ -1,5 +1,13 @@
 # backend/app/services/sync/handlers/devices.py
 
+"""
+Responsibilities:
+- Sync handler for devices entities.
+- Implement pull and push operations.
+"""
+
+# backend/app/services/sync/handlers/devices.py
+
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 

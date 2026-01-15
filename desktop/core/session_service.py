@@ -1,3 +1,11 @@
+# desktop/core/session_service.py
+
+"""
+Responsibilities:
+- Service layer for session workflows.
+- Coordinate related operations and dependencies.
+"""
+
 #desktop/core/session_service.py
 """
 Responsabilities:

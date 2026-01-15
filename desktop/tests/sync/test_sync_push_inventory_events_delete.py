@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_inventory_events_delete.py
+
+"""
+Responsibilities:
+- Test sync push inventory events delete behavior.
+"""
+
 # desktop/tests/test_sync_push_inventory_events_delete.py
 
 from desktop.core.http_client import post

@@ -1,10 +1,9 @@
 # desktop/core/http_client.py
 
 """
-Responsabilities:
-- Provide HTTP client for DV Server communication
-- Handle GET and POST requests with JWT authentication
-- Manage error handling for HTTP requests
+Responsibilities:
+- Core module for http client.
+- Provide shared application logic.
 """
 
 import os

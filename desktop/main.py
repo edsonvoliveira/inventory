@@ -1,3 +1,13 @@
+# desktop/main.py
+
+"""
+Responsibilities:
+- Main application entry point.
+- Initialize app state and services.
+- Set up the main UI layout.
+- Handle routing and authentication.
+- Start the Flet application.
+"""
 
 import flet as ft
 from desktop.core.app_state import AppState

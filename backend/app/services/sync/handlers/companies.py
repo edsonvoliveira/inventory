@@ -1,5 +1,13 @@
 # backend/app/services/sync/handlers/companies.py
 
+"""
+Responsibilities:
+- Sync handler for companies entities.
+- Implement pull and push operations.
+"""
+
+# backend/app/services/sync/handlers/companies.py
+
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 

@@ -1,3 +1,10 @@
+# mobile/data/seeds/seed_minimal_test_data.py
+
+"""
+Responsibilities:
+- Module responsibilities not classified.
+"""
+
 import sqlite3
 
 

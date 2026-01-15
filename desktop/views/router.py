@@ -1,3 +1,10 @@
+# desktop/views/router.py
+
+"""
+Responsibilities:
+- Module responsibilities not classified.
+"""
+
 import flet as ft
 
 from desktop.core.strings import PAGE_HOME_SUBTITLE, PAGE_HOME_TITLE

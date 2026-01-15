@@ -1,3 +1,11 @@
+# desktop/widgets/top_bar.py
+
+"""
+Responsibilities:
+- Reusable UI widget for top bar.
+- Expose UI controls and styling hooks.
+"""
+
 import flet as ft
 
 from desktop.core.strings import APP_TITLE

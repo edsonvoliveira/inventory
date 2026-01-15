@@ -1,3 +1,10 @@
+# mobile/tests/test_logical_bootstrap.py
+
+"""
+Responsibilities:
+- Test logical bootstrap behavior.
+"""
+
 from mobile.bootstrap.bootstrap import bootstrap_app
 from mobile.core.sync_service import ensure_bootstrap_for_company
 from mobile.data.repositories.app_meta_repo import get_meta

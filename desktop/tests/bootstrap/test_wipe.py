@@ -1,3 +1,10 @@
+# desktop/tests/bootstrap/test_wipe.py
+
+"""
+Responsibilities:
+- Test wipe behavior.
+"""
+
 #desktop/tests/bootstrap/test_wipe.py
 """
 Responsabilities:

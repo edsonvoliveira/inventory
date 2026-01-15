@@ -1,3 +1,10 @@
+# desktop/tests/repositories/test_products_repo.py
+
+"""
+Responsibilities:
+- Test products repo behavior.
+"""
+
 #desktop/tests/repositories/test_products_repo.py
 """
 Responsabilities:

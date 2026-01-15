@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_inventory_event_targets_update.py
+
+"""
+Responsibilities:
+- Test sync push inventory event targets update behavior.
+"""
+
 # desktop/tests/test_sync_push_inventory_event_targets_update.py
 
 from desktop.core.http_client import post

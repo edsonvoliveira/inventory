@@ -1,3 +1,11 @@
+# desktop/core/strings.py
+
+"""
+Responsibilities:
+- Core module for strings.
+- Provide shared application logic.
+"""
+
 APP_TITLE = "Inventory Management System"
 
 LOGIN_TITLE = "Acesso ao Sistema"

@@ -1,5 +1,12 @@
 # backend/tests/helpers/test_user.py
 
+"""
+Responsibilities:
+- Test user behavior.
+"""
+
+# backend/tests/helpers/test_user.py
+
 from dataclasses import dataclass
 from app.core.user_context import UserContext
 

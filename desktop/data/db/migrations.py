@@ -1,10 +1,9 @@
-# data/db/migrations.py
+# desktop/data/db/migrations.py
 
 """
-Responsabilidade:
-- Existir
-- Ter assinatura clara
-- Não precisa implementar nada ainda
+Responsibilities:
+- Define database migrations.
+- Apply schema upgrades for local storage.
 """
 
 def run_migrations_if_needed(conn):

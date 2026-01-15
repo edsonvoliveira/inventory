@@ -1,5 +1,13 @@
 # backend/app/services/sync/handlers/inventory_event_targets.py
 
+"""
+Responsibilities:
+- Sync handler for inventory event targets entities.
+- Implement pull and push operations.
+"""
+
+# backend/app/services/sync/handlers/inventory_event_targets.py
+
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 

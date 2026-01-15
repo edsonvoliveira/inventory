@@ -1,5 +1,13 @@
 # backend/app/services/sync/handlers/zones.py
 
+"""
+Responsibilities:
+- Sync handler for zones entities.
+- Implement pull and push operations.
+"""
+
+# backend/app/services/sync/handlers/zones.py
+
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 

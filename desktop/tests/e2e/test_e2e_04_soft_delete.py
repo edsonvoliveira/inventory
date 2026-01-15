@@ -1,5 +1,12 @@
 # desktop/tests/e2e/test_e2e_04_soft_delete.py
 
+"""
+Responsibilities:
+- Test e2e 04 soft delete behavior.
+"""
+
+# desktop/tests/e2e/test_e2e_04_soft_delete.py
+
 from desktop.core.sync_push_service import SyncPushService
 from desktop.data.repositories.products_repo import ProductsRepo
 from desktop.data.db.connection import get_connection

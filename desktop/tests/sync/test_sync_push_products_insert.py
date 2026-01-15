@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_products_insert.py
+
+"""
+Responsibilities:
+- Test sync push products insert behavior.
+"""
+
 # desktop/tests/test_sync_push_products_insert.py
 
 from desktop.core.http_client import post

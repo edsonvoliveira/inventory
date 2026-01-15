@@ -1,9 +1,9 @@
 # desktop/data/repositories/product_categories_repo.py
+
 """
-Responsabilities:
-- Repository for product categories entity
-- Inherits basic CRUD, outbox, and sync from BaseRepo
-- Configured via RepoConfig for product categories-specific behavior
+Responsibilities:
+- Repository for product categories data.
+- Define persistence and sync behavior.
 """
 
 from desktop.data.repositories.base_repo import BaseRepo, RepoConfig

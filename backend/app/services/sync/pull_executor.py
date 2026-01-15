@@ -1,5 +1,13 @@
 # backend/app/services/sync/pull_executor.py
 
+"""
+Responsibilities:
+- Sync service component for pull executor.
+- Coordinate sync workflow steps.
+"""
+
+# backend/app/services/sync/pull_executor.py
+
 from datetime import datetime, timezone
 from typing import Dict, Any
 

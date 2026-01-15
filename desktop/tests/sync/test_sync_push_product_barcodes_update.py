@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_product_barcodes_update.py
+
+"""
+Responsibilities:
+- Test sync push product barcodes update behavior.
+"""
+
 # desktop/tests/test_sync_push_product_barcodes_update.py
 
 from desktop.core.http_client import post

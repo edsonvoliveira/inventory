@@ -1,3 +1,11 @@
+# backend/app/api/system.py
+
+"""
+Responsibilities:
+- API routes for system endpoints.
+- Handle request validation and responses.
+"""
+
 #backend/app/api/system.py
 
 from fastapi import APIRouter

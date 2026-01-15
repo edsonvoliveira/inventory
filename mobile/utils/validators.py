@@ -1,3 +1,11 @@
+# mobile/utils/validators.py
+
+"""
+Responsibilities:
+- Utility helpers for validators.
+- Provide shared helper functions.
+"""
+
 def is_required(value: str) -> bool:
     return bool(value and value.strip())
 

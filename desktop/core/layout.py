@@ -1,3 +1,11 @@
+# desktop/core/layout.py
+
+"""
+Responsibilities:
+- Core module for layout.
+- Provide shared application logic.
+"""
+
 import flet as ft
 
 from desktop.core.navigation import SECTIONS

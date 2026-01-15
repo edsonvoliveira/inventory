@@ -1,3 +1,10 @@
+# desktop/tests/repositories/test_zone_user_progress_repo.py
+
+"""
+Responsibilities:
+- Test zone user progress repo behavior.
+"""
+
 #desktop/tests/repositories/test_zone_user_progress_repo.py
 
 """

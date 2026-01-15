@@ -1,3 +1,11 @@
+# mobile/data/repositories/companies_repo.py
+
+"""
+Responsibilities:
+- Repository for companies data.
+- Define persistence and sync behavior.
+"""
+
 from mobile.data.db.connection import get_connection
 
 

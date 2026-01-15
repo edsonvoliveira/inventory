@@ -1,3 +1,11 @@
+# backend/app/core/config.py
+
+"""
+Responsibilities:
+- Core module for config.
+- Provide shared application logic.
+"""
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

@@ -1,3 +1,11 @@
+# mobile/utils/ui.py
+
+"""
+Responsibilities:
+- Utility helpers for ui.
+- Provide shared helper functions.
+"""
+
 import flet as ft
 
 from core.theme import THEME

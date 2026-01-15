@@ -1,3 +1,10 @@
+# desktop/tests/e2e/test_e2e_01_bootstrap.py
+
+"""
+Responsibilities:
+- Test e2e 01 bootstrap behavior.
+"""
+
 #desktop/tests/e2e/test_e2e_01_bootstrap.py
 
 from desktop.core.bootstrap_service import BootstrapService

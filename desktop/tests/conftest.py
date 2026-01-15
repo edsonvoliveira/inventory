@@ -1,3 +1,11 @@
+# desktop/tests/conftest.py
+
+"""
+Responsibilities:
+- Define pytest fixtures for this test scope.
+- Configure test environment setup and teardown.
+"""
+
 #desktop/tests/repositories/conftest.py
 """
 Responsabilities:

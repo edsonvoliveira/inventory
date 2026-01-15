@@ -1,5 +1,13 @@
 # backend/app/services/sync/handlers/locations.py
 
+"""
+Responsibilities:
+- Sync handler for locations entities.
+- Implement pull and push operations.
+"""
+
+# backend/app/services/sync/handlers/locations.py
+
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 

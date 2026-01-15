@@ -1,3 +1,11 @@
+# mobile/views/zone_details_view.py
+
+"""
+Responsibilities:
+- Render the zone details view.
+- Wire UI events and interactions.
+"""
+
 import flet as ft
 
 from core.app_state import AppState

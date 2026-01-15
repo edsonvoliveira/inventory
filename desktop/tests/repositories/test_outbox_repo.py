@@ -1,3 +1,10 @@
+# desktop/tests/repositories/test_outbox_repo.py
+
+"""
+Responsibilities:
+- Test outbox repo behavior.
+"""
+
 #desktop/tests/repositories/test_outbox_repo.py
 
 """

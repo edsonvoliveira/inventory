@@ -1,3 +1,10 @@
+# desktop/tests/repositories/test_inventory_items_repo.py
+
+"""
+Responsibilities:
+- Test inventory items repo behavior.
+"""
+
 #desktop/tests/repositories/test_inventory_items_repo.py
 
 """

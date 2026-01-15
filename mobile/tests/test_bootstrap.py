@@ -1,3 +1,10 @@
+# mobile/tests/test_bootstrap.py
+
+"""
+Responsibilities:
+- Test bootstrap behavior.
+"""
+
 from mobile.bootstrap.bootstrap import bootstrap_app
 from mobile.data.repositories.app_meta_repo import get_meta
 from mobile.config.settings import DB_PATH

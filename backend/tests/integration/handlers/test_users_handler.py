@@ -1,5 +1,12 @@
 # backend/tests/integration/handlers/test_users_handler.py
 
+"""
+Responsibilities:
+- Test users handler behavior.
+"""
+
+# backend/tests/integration/handlers/test_users_handler.py
+
 import os
 import importlib
 from uuid import uuid4

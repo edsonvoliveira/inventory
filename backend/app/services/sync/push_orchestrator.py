@@ -1,5 +1,13 @@
 # backend/app/services/sync/push_orchestrator.py
 
+"""
+Responsibilities:
+- Sync service component for push orchestrator.
+- Coordinate sync workflow steps.
+"""
+
+# backend/app/services/sync/push_orchestrator.py
+
 from app.services.sync.registry import SYNC_HANDLERS
 from app.schemas.sync import SyncItem
 

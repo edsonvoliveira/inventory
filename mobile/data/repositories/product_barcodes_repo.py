@@ -1,3 +1,11 @@
+# mobile/data/repositories/product_barcodes_repo.py
+
+"""
+Responsibilities:
+- Repository for product barcodes data.
+- Define persistence and sync behavior.
+"""
+
 from mobile.data.db.connection import get_connection
 
 

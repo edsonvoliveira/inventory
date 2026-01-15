@@ -1,3 +1,11 @@
+# backend/app/services/sync/pull_orchestrator.py
+
+"""
+Responsibilities:
+- Sync service component for pull orchestrator.
+- Coordinate sync workflow steps.
+"""
+
 # services/sync/pull_orchestrator.py
 
 from datetime import datetime

@@ -1,3 +1,11 @@
+# desktop/utils/list_row.py
+
+"""
+Responsibilities:
+- Utility helpers for list row.
+- Provide shared helper functions.
+"""
+
 import flet as ft
 
 

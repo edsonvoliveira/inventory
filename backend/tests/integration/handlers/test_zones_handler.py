@@ -1,5 +1,12 @@
 # backend/tests/integration/handlers/test_zones_handler.py
 
+"""
+Responsibilities:
+- Test zones handler behavior.
+"""
+
+# backend/tests/integration/handlers/test_zones_handler.py
+
 import os
 import importlib
 from uuid import uuid4

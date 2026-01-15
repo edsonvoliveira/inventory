@@ -1,3 +1,10 @@
+# desktop/tests/sync/test_sync_push_devices_insert.py
+
+"""
+Responsibilities:
+- Test sync push devices insert behavior.
+"""
+
 # desktop/tests/test_sync_push_devices_insert.py
 
 from desktop.core.http_client import post

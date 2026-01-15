@@ -1,3 +1,11 @@
+# mobile/views/login_view.py
+
+"""
+Responsibilities:
+- Render the login view.
+- Wire UI events and interactions.
+"""
+
 import flet as ft
 
 from core.app_state import AppState

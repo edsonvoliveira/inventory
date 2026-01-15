@@ -1,3 +1,11 @@
+# desktop/core/company_switch_service.py
+
+"""
+Responsibilities:
+- Service layer for company switch workflows.
+- Coordinate related operations and dependencies.
+"""
+
 #desktop/core/company_switch_service.py
 
 """

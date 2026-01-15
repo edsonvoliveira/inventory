@@ -1,3 +1,11 @@
+# mobile/data/repositories/users_repo.py
+
+"""
+Responsibilities:
+- Repository for users data.
+- Define persistence and sync behavior.
+"""
+
 from mobile.data.db.connection import get_connection
 
 

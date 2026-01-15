@@ -1,5 +1,13 @@
 # backend/app/api/sync.py
 
+"""
+Responsibilities:
+- API routes for sync endpoints.
+- Handle request validation and responses.
+"""
+
+# backend/app/api/sync.py
+
 from datetime import datetime, timezone
 from typing import Optional
 

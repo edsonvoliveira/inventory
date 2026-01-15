@@ -1,3 +1,11 @@
+# mobile/data/migrations.py
+
+"""
+Responsibilities:
+- Define database migrations.
+- Apply schema upgrades for local storage.
+"""
+
 from typing import Callable
 
 

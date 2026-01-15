@@ -1,3 +1,11 @@
+# backend/app/schemas/sync.py
+
+"""
+Responsibilities:
+- Pydantic schemas for sync data.
+- Define request and response shapes.
+"""
+
 # app/schemas/sync.py
 
 from typing import List, Dict, Any

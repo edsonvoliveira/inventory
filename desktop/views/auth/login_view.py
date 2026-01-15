@@ -1,3 +1,11 @@
+# desktop/views/auth/login_view.py
+
+"""
+Responsibilities:
+- Render the login view.
+- Wire UI events and interactions.
+"""
+
 import flet as ft
 
 from desktop.core.app_state import AppState

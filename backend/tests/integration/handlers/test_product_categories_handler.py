@@ -1,3 +1,10 @@
+# backend/tests/integration/handlers/test_product_categories_handler.py
+
+"""
+Responsibilities:
+- Test product categories handler behavior.
+"""
+
 #backend/tests/integration/handlers/test_product_categories_handler.py
 
 import os

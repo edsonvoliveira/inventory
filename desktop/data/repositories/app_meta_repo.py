@@ -1,11 +1,9 @@
-# data/repositories/app_meta_repo.py
+# desktop/data/repositories/app_meta_repo.py
 
 """
-Responsabilities:
-- Repository for app_meta entity
-- Provides functions to get, set, delete, and clear metadata entries
-- Uses direct SQL queries for operations
-- Manages database connections appropriately
+Responsibilities:
+- Repository for app meta data.
+- Define persistence and sync behavior.
 """
 
 from desktop.data.db.connection import get_connection
