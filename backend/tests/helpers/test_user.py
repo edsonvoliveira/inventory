@@ -8,3 +8,5 @@ from app.core.user_context import UserContext
 class FakeCurrentUser(UserContext):
     company_server_id: int
     db_user_id: int
+    email: str = "e2e@test.local"
+    is_admin: bool = False

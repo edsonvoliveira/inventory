@@ -1,19 +1,14 @@
 # desktop/data/db/schema.py
 
 """
-Responsabilities:
-- Define entire SQLite Desktop schema
-- Desktop as System of Record (SoR)
-- Server as authority only for identity (companies, users)
-- Offline-first + Async Sync
-- Local cache (offline-first)
-- Outbox for Sync Push
-- Support incremental Sync Pull
-- Include:
-    - app_meta
-    - local tables (master cache + structure + operation)
-    - outbox_local
-- Define SCHEMA_VERSION
+Responsabilidade:
+- Definir todo o schema SQLite Desktop
+- Desktop como System of Record (SoR)
+- Server como autoridade apenas para identity (companies, users)
+- Offline-first + Sync assíncrono
+- Cache local completo
+- Outbox para Sync Push
+- Suporte a Sync Pull incremental
 """
 
 SCHEMA_VERSION = 5
@@ -22,7 +17,7 @@ SCHEMA_SQL = """
 PRAGMA foreign_keys = ON;
 
 -- ======================================================
--- META
+-- META / CONTROLE LOCAL (NUNCA VAI PARA O SERVIDOR)
 -- ======================================================
 CREATE TABLE IF NOT EXISTS app_meta (
   key   TEXT PRIMARY KEY,
@@ -30,7 +25,7 @@ CREATE TABLE IF NOT EXISTS app_meta (
 );
 
 -- ======================================================
--- IDENTITY (SERVER OWNED)
+-- IDENTIDADE (CRIADOS NO SERVIDOR)
 -- ======================================================
 CREATE TABLE IF NOT EXISTS users_local (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,6 +50,31 @@ CREATE TABLE IF NOT EXISTS users_local (
 CREATE UNIQUE INDEX IF NOT EXISTS ux_users_local_uuid ON users_local(uuid);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_users_local_server_id ON users_local(server_id);
 
+CREATE TABLE IF NOT EXISTS devices_local (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  uuid TEXT NOT NULL,
+  server_id INTEGER, -- pode ser NULL até sync
+
+  device_uuid TEXT,
+  device_name TEXT,
+  os TEXT,
+  app_version TEXT,
+
+  is_blocked INTEGER DEFAULT 0,
+
+  created_at TEXT,
+  updated_at TEXT,
+  deleted_at TEXT,
+
+  last_sync_at TEXT,
+  source TEXT DEFAULT 'desktop'
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_devices_local_uuid ON devices_local(uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_devices_local_server_id ON devices_local(server_id);
+
+-- ======================================================
+-- DADOS MESTRE (DESKTOP = MESTRE)
+-- ======================================================
 CREATE TABLE IF NOT EXISTS companies_local (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   uuid TEXT NOT NULL,
@@ -78,15 +98,13 @@ CREATE TABLE IF NOT EXISTS companies_local (
 CREATE UNIQUE INDEX IF NOT EXISTS ux_companies_local_uuid ON companies_local(uuid);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_companies_local_server_id ON companies_local(server_id);
 
--- ======================================================
--- MASTER DATA (DESKTOP = SoR)
--- ======================================================
 CREATE TABLE IF NOT EXISTS locations_local (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   uuid TEXT NOT NULL,
-  server_id INTEGER,
+  server_id INTEGER, -- criado no desktop
 
   company_server_id INTEGER NOT NULL,
+
   code TEXT,
   name TEXT NOT NULL,
   address TEXT,
@@ -101,13 +119,16 @@ CREATE TABLE IF NOT EXISTS locations_local (
   synced_at TEXT,
   source TEXT DEFAULT 'desktop'
 );
+CREATE UNIQUE INDEX IF NOT EXISTS ux_locations_local_uuid ON locations_local(uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_locations_local_server_id ON locations_local(server_id);
 
 CREATE TABLE IF NOT EXISTS product_categories_local (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   uuid TEXT NOT NULL,
-  server_id INTEGER,
+  server_id INTEGER, -- criado no desktop
 
   company_server_id INTEGER NOT NULL,
+
   code TEXT NOT NULL,
   name TEXT NOT NULL,
   description TEXT,
@@ -122,11 +143,13 @@ CREATE TABLE IF NOT EXISTS product_categories_local (
   synced_at TEXT,
   source TEXT DEFAULT 'desktop'
 );
+CREATE UNIQUE INDEX IF NOT EXISTS ux_product_categories_local_uuid ON product_categories_local(uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_product_categories_local_server_id ON product_categories_local(server_id);
 
 CREATE TABLE IF NOT EXISTS products_local (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   uuid TEXT NOT NULL,
-  server_id INTEGER,
+  server_id INTEGER, -- criado no desktop
 
   company_server_id INTEGER NOT NULL,
   category_server_id INTEGER,
@@ -154,17 +177,21 @@ CREATE TABLE IF NOT EXISTS products_local (
   synced_at TEXT,
   source TEXT DEFAULT 'desktop'
 );
+CREATE UNIQUE INDEX IF NOT EXISTS ux_products_local_uuid ON products_local(uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_products_local_server_id ON products_local(server_id);
+CREATE INDEX IF NOT EXISTS ix_products_local_sku ON products_local(sku);
 
 CREATE TABLE IF NOT EXISTS product_barcodes_local (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   uuid TEXT NOT NULL,
-  server_id INTEGER,
+  server_id INTEGER, -- criado no desktop
 
   company_server_id INTEGER NOT NULL,
-  product_server_id INTEGER NOT NULL,
+  product_server_id INTEGER,
 
   barcode TEXT NOT NULL,
   description TEXT,
+
   is_active INTEGER DEFAULT 1,
 
   created_at TEXT,
@@ -175,9 +202,12 @@ CREATE TABLE IF NOT EXISTS product_barcodes_local (
   synced_at TEXT,
   source TEXT DEFAULT 'desktop'
 );
+CREATE UNIQUE INDEX IF NOT EXISTS ux_product_barcodes_local_uuid ON product_barcodes_local(uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_product_barcodes_local_server_id ON product_barcodes_local(server_id);
+CREATE INDEX IF NOT EXISTS ix_product_barcodes_local_barcode ON product_barcodes_local(barcode);
 
 -- ======================================================
--- INVENTORY STRUCTURE
+-- INVENTÁRIO (ESTRUTURA)
 -- ======================================================
 CREATE TABLE IF NOT EXISTS inventory_events_local (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -188,16 +218,13 @@ CREATE TABLE IF NOT EXISTS inventory_events_local (
   location_server_id INTEGER NOT NULL,
 
   title TEXT NOT NULL,
-  event_type TEXT NOT NULL,
+  event_type TEXT,
   status TEXT NOT NULL,
 
   required_counts INTEGER,
   required_audits INTEGER,
   tolerance_percent REAL,
   tolerance_absolute REAL,
-
-  primary_finished_at TEXT,
-  audit_finished_at TEXT,
 
   is_active INTEGER DEFAULT 1,
 
@@ -209,6 +236,8 @@ CREATE TABLE IF NOT EXISTS inventory_events_local (
   synced_at TEXT,
   source TEXT DEFAULT 'desktop'
 );
+CREATE UNIQUE INDEX IF NOT EXISTS ux_inventory_events_local_uuid ON inventory_events_local(uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_inventory_events_local_server_id ON inventory_events_local(server_id);
 
 CREATE TABLE IF NOT EXISTS inventory_event_targets_local (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -230,6 +259,8 @@ CREATE TABLE IF NOT EXISTS inventory_event_targets_local (
   synced_at TEXT,
   source TEXT DEFAULT 'desktop'
 );
+CREATE UNIQUE INDEX IF NOT EXISTS ux_inventory_event_targets_local_uuid ON inventory_event_targets_local(uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_inventory_event_targets_local_server_id ON inventory_event_targets_local(server_id);
 
 CREATE TABLE IF NOT EXISTS zones_local (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -240,8 +271,9 @@ CREATE TABLE IF NOT EXISTS zones_local (
 
   name TEXT NOT NULL,
   description TEXT,
-  count_status TEXT DEFAULT 'not_started',
-  lock_status TEXT DEFAULT 'unlocked',
+
+  count_status TEXT,
+  lock_status TEXT,
 
   is_active INTEGER DEFAULT 1,
 
@@ -253,24 +285,26 @@ CREATE TABLE IF NOT EXISTS zones_local (
   synced_at TEXT,
   source TEXT DEFAULT 'desktop'
 );
+CREATE UNIQUE INDEX IF NOT EXISTS ux_zones_local_uuid ON zones_local(uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_zones_local_server_id ON zones_local(server_id);
 
 -- ======================================================
--- INVENTORY OPERATION
+-- INVENTÁRIO (OPERAÇÃO OFFLINE)
 -- ======================================================
 CREATE TABLE IF NOT EXISTS inventory_items_local (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   uuid TEXT NOT NULL,
-  server_id INTEGER,
+  server_id INTEGER, -- criado offline
 
   zone_server_id INTEGER NOT NULL,
   product_server_id INTEGER,
   user_server_id INTEGER,
-  created_by_user_server_id INTEGER,
 
   scanned_code TEXT,
   qty_counted REAL DEFAULT 0,
   batch_number TEXT,
   expiry_date TEXT,
+
   is_new_product INTEGER DEFAULT 0,
 
   device_timestamp TEXT,
@@ -281,7 +315,6 @@ CREATE TABLE IF NOT EXISTS inventory_items_local (
   longitude REAL,
 
   source TEXT DEFAULT 'desktop',
-  audit_meta TEXT,
 
   created_at TEXT,
   updated_at TEXT,
@@ -290,6 +323,8 @@ CREATE TABLE IF NOT EXISTS inventory_items_local (
   synced INTEGER DEFAULT 0,
   synced_at TEXT
 );
+CREATE UNIQUE INDEX IF NOT EXISTS ux_inventory_items_local_uuid ON inventory_items_local(uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_inventory_items_local_server_id ON inventory_items_local(server_id);
 
 CREATE TABLE IF NOT EXISTS zone_user_progress_local (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -299,7 +334,7 @@ CREATE TABLE IF NOT EXISTS zone_user_progress_local (
   zone_server_id INTEGER NOT NULL,
   user_server_id INTEGER NOT NULL,
 
-  count_type TEXT NOT NULL,
+  count_type TEXT,
   started_at TEXT,
   finished_at TEXT,
   is_finished INTEGER DEFAULT 0,
@@ -314,93 +349,28 @@ CREATE TABLE IF NOT EXISTS zone_user_progress_local (
   deleted_at TEXT,
 
   source TEXT DEFAULT 'desktop',
+
   synced INTEGER DEFAULT 0,
   synced_at TEXT
 );
+CREATE UNIQUE INDEX IF NOT EXISTS ux_zone_user_progress_local_uuid ON zone_user_progress_local(uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_zone_user_progress_local_server_id ON zone_user_progress_local(server_id);
 
 -- ======================================================
--- AUDIT / DIVERGENCE / WORKFLOW
--- ======================================================
-CREATE TABLE IF NOT EXISTS divergence_reason_types_local (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  uuid TEXT NOT NULL,
-  server_id INTEGER,
-
-  company_server_id INTEGER NOT NULL,
-  code TEXT NOT NULL,
-  description TEXT NOT NULL,
-  requires_documentation INTEGER DEFAULT 0,
-
-  is_active INTEGER DEFAULT 1,
-  created_at TEXT,
-  updated_at TEXT,
-  deleted_at TEXT,
-
-  synced INTEGER DEFAULT 0,
-  synced_at TEXT,
-  source TEXT DEFAULT 'desktop'
-);
-
-CREATE TABLE IF NOT EXISTS inventory_divergences_local (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  uuid TEXT NOT NULL,
-  server_id INTEGER,
-
-  event_server_id INTEGER NOT NULL,
-  zone_server_id INTEGER,
-  product_server_id INTEGER NOT NULL,
-
-  qty_primary REAL,
-  qty_audit REAL,
-  difference REAL,
-
-  resolution TEXT,
-  divergence_reason TEXT,
-  resolved_by_user_server_id INTEGER,
-  resolved_at TEXT,
-
-  metadata TEXT,
-
-  created_at TEXT,
-  updated_at TEXT,
-  deleted_at TEXT,
-
-  synced INTEGER DEFAULT 0,
-  synced_at TEXT,
-  source TEXT DEFAULT 'desktop'
-);
-
-CREATE TABLE IF NOT EXISTS workflow_logs_local (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  uuid TEXT NOT NULL,
-  server_id INTEGER,
-
-  entity TEXT NOT NULL,
-  entity_server_id INTEGER NOT NULL,
-  from_state TEXT,
-  to_state TEXT,
-  triggered_by_user_server_id INTEGER,
-  timestamp TEXT NOT NULL,
-
-  synced INTEGER DEFAULT 0,
-  synced_at TEXT,
-  source TEXT DEFAULT 'desktop'
-);
-
--- ======================================================
--- OUTBOX
+-- OUTBOX (SYNC PUSH)
 -- ======================================================
 CREATE TABLE IF NOT EXISTS outbox_local (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   table_name TEXT NOT NULL,
-  operation TEXT NOT NULL,
+  operation TEXT NOT NULL,      -- insert | update | delete
   record_uuid TEXT NOT NULL,
   payload TEXT NOT NULL,
 
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+
   attempts INTEGER DEFAULT 0,
   last_error TEXT
 );
+CREATE INDEX IF NOT EXISTS ix_outbox_local_table_op ON outbox_local(table_name, operation);
+CREATE INDEX IF NOT EXISTS ix_outbox_local_record_uuid ON outbox_local(record_uuid);
 """
-
-

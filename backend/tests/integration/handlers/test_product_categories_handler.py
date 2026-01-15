@@ -90,7 +90,7 @@ def test_product_categories_push_update():
     sb.table("product_categories").insert({
         "uuid": record_uuid,
         "company_id": TEST_COMPANY_ID,
-        "code": "CAT-OLD",
+        "code": f"CAT-{record_uuid[:8]}",
         "name": "Categoria Original",
         "description": None,
         "is_active": True,
@@ -118,7 +118,7 @@ def test_product_categories_push_soft_delete():
     sb.table("product_categories").insert({
         "uuid": record_uuid,
         "company_id": TEST_COMPANY_ID,
-        "code": "CAT-DEL",
+        "code": f"CAT-{record_uuid[:8]}",
         "name": "Categoria Delete",
         "is_active": True,
     }).execute()

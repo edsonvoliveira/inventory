@@ -12,7 +12,6 @@ from tests.helpers.test_user import FakeCurrentUser
 TEST_COMPANY_ID = int(os.environ["TEST_COMPANY_ID"])
 TEST_USER_ID = 1
 
-
 def get_handler():
     mod = importlib.import_module("app.services.sync.handlers.inventory_event_targets")
     for obj in vars(mod).values():
@@ -21,6 +20,13 @@ def get_handler():
                 return obj()
     raise RuntimeError("Handler de inventory_event_targets não encontrado.")
 
+def cleanup_target(event_id: int, product_id: int):
+    sb = get_supabase_service_client()
+    sb.table("inventory_event_targets") \
+        .delete() \
+        .eq("event_id", event_id) \
+        .eq("product_id", product_id) \
+        .execute()
 
 def ensure_location_id() -> int:
     sb = get_supabase_service_client()
@@ -85,7 +91,6 @@ def cleanup(uuid: str):
     sb = get_supabase_service_client()
     sb.table("inventory_event_targets").delete().eq("uuid", uuid).execute()
 
-
 def test_inventory_event_targets_pull_bootstrap():
     handler = get_handler()
     data = handler.pull(company_id=TEST_COMPANY_ID, since=None)
@@ -101,6 +106,8 @@ def test_inventory_event_targets_pull_incremental():
     record_uuid = str(uuid4())
     event_id = ensure_event_id()
     product_id = ensure_product_id()
+
+    cleanup_target(event_id, product_id)
 
     sb.table("inventory_event_targets").insert({
         "uuid": record_uuid,

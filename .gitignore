@@ -29,3 +29,7 @@ Thumbs.db
 
 # --- Secrets / Env vars ---
 .env
+
+# --- developer files ---
+z_files/
+_legacy/

@@ -81,7 +81,7 @@ def test_locations_push_update():
     sb.table("locations").insert({
         "uuid": record_uuid,
         "company_id": TEST_COMPANY_ID,
-        "code": "LOC-OLD",
+        "code": f"LOC-{record_uuid[:8]}",
         "name": "Location Original",
         "address": None,
         "is_active": True,
@@ -105,7 +105,7 @@ def test_locations_push_soft_delete():
     sb.table("locations").insert({
         "uuid": record_uuid,
         "company_id": TEST_COMPANY_ID,
-        "code": "LOC-DEL",
+        "code": f"LOC-{record_uuid[:8]}",
         "name": "Location Delete",
         "is_active": True,
     }).execute()

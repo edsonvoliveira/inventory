@@ -6,7 +6,7 @@ import os
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 # Path to the SQLite database file
-DB_PATH = os.path.join(BASE_DIR, "desktop.db")
+DB_PATH = os.path.join(BASE_DIR, "inventory.db")
 
 # -----------------------------
 # DV Server settings
