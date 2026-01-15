@@ -26,38 +26,59 @@ class SessionService:
     @classmethod
     def set_jwt_token(cls, token: str) -> None:
         conn = get_connection()
-        set_meta(cls.JWT_KEY, token, conn)
+        try:
+            set_meta(cls.JWT_KEY, token, conn)
+        finally:
+            conn.close()
 
     @classmethod
     def get_jwt_token(cls) -> Optional[str]:
         conn = get_connection()
-        return get_meta(cls.JWT_KEY, conn)
+        try:
+            return get_meta(cls.JWT_KEY, conn)
+        finally:
+            conn.close()
 
     @classmethod
     def clear_session(cls) -> None:
         conn = get_connection()
-        set_meta(cls.JWT_KEY, "", conn)
-        set_meta(cls.COMPANY_SERVER_ID_KEY, "", conn)
-        set_meta(cls.USER_SERVER_ID_KEY, "", conn)
+        try:
+            set_meta(cls.JWT_KEY, "", conn)
+            set_meta(cls.COMPANY_SERVER_ID_KEY, "", conn)
+            set_meta(cls.USER_SERVER_ID_KEY, "", conn)
+        finally:
+            conn.close()
 
     @classmethod
     def set_company_server_id(cls, company_server_id: int) -> None:
         conn = get_connection()
-        set_meta(cls.COMPANY_SERVER_ID_KEY, str(company_server_id), conn)
+        try:
+            set_meta(cls.COMPANY_SERVER_ID_KEY, str(company_server_id), conn)
+        finally:
+            conn.close()
 
     @classmethod
     def get_company_server_id(cls) -> Optional[int]:
         conn = get_connection()
-        value = get_meta(cls.COMPANY_SERVER_ID_KEY, conn)
-        return int(value) if value else None
+        try:
+            value = get_meta(cls.COMPANY_SERVER_ID_KEY, conn)
+            return int(value) if value else None
+        finally:
+            conn.close()
 
     @classmethod
     def set_user_server_id(cls, user_server_id: int) -> None:
         conn = get_connection()
-        set_meta(cls.USER_SERVER_ID_KEY, str(user_server_id), conn)
+        try:
+            set_meta(cls.USER_SERVER_ID_KEY, str(user_server_id), conn)
+        finally:
+            conn.close()
 
     @classmethod
     def get_user_server_id(cls) -> Optional[int]:
         conn = get_connection()
-        value = get_meta(cls.USER_SERVER_ID_KEY, conn)
-        return int(value) if value else None
+        try:
+            value = get_meta(cls.USER_SERVER_ID_KEY, conn)
+            return int(value) if value else None
+        finally:
+            conn.close()

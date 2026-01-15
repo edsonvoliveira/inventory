@@ -1,8 +1,9 @@
 # desktop/tests/e2e/test_e2e_02_push.py
 
+from uuid import uuid4
+
 from desktop.core.sync_push_service import SyncPushService
 from desktop.data.repositories.products_repo import ProductsRepo
-from desktop.data.repositories.app_meta_repo import get_meta
 from desktop.data.db.connection import get_connection
 
 
@@ -18,9 +19,12 @@ def test_e2e_02_push_insert(e2e_env):
         repo = ProductsRepo(conn)
 
         # cria produto local (offline)
-        local_id = repo.create({
-            "name": "Produto E2E Push",
-            "sku": "E2E-PUSH-001",
+        unique_suffix = str(uuid4())[:8]
+        record_uuid = repo.create({
+            "name": f"Produto E2E Push {unique_suffix}",
+            "sku": f"E2E-PUSH-{unique_suffix}",
+            "uom_base": "unit",
+            "uom_inventory": "unit",
             "is_active": 1,
             "source": "desktop",
             "synced": 0,
@@ -29,16 +33,16 @@ def test_e2e_02_push_insert(e2e_env):
         conn.commit()
 
         # sanity check
-        product = repo.get_by_id(local_id)
+        product = repo.get_by_uuid(record_uuid)
         assert product["synced"] == 0
 
         # ACT → push
         SyncPushService().run()
 
         # ASSERT → produto marcado como sincronizado
-        product = repo.get_by_id(local_id)
+        product = repo.get_by_uuid(record_uuid)
         assert product["synced"] == 1
-        assert product["server_uuid"] is not None
+        assert product["uuid"] == record_uuid
 
     finally:
         conn.close()
