@@ -8,10 +8,10 @@ Responsibilities:
 
 import flet as ft
 
-from core.app_state import AppState
-from core.navigation import ROUTES
-from core.theme import THEME, TOUCH
-from utils.ui import toast
+from mobile.core.app_state import AppState
+from mobile.core.navigation import ROUTES
+from mobile.core.theme import THEME, TOUCH
+from mobile.utils.ui import toast
 
 
 def profile_content(page: ft.Page, state: AppState):

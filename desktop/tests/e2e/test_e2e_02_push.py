@@ -9,7 +9,7 @@ Responsibilities:
 
 from uuid import uuid4
 
-from desktop.core.sync_push_service import SyncPushService
+from desktop.app_core_container import build_services
 from desktop.data.repositories.products_repo import ProductsRepo
 from desktop.data.db.connection import get_connection
 
@@ -44,7 +44,7 @@ def test_e2e_02_push_insert(e2e_env):
         assert product["synced"] == 0
 
         # ACT → push
-        SyncPushService().run()
+        build_services().sync_push.run()
 
         # ASSERT → produto marcado como sincronizado
         product = repo.get_by_uuid(record_uuid)

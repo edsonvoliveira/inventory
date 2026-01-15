@@ -8,17 +8,17 @@ Responsibilities:
 
 import flet as ft
 
-from core.app_state import AppState
-from core.navigation import ROUTES
-from data.queries import (
+from mobile.core.app_state import AppState
+from mobile.core.navigation import ROUTES
+from mobile.data.queries import (
     add_local_inventory_item,
     count_distinct_products_for_zone,
     list_counted_product_ids,
     list_pending_inventory_items,
     list_products,
 )
-from utils.ui import toast
-from utils.validators import parse_float
+from mobile.utils.ui import toast
+from mobile.utils.validators import parse_float
 
 
 def counting_page_content(page: ft.Page, state: AppState):

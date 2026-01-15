@@ -8,11 +8,11 @@ Responsibilities:
 
 import flet as ft
 
-from core.app_state import AppState
-from core.navigation import ROUTES
-from core.theme import THEME, TOUCH
-from data.queries import count_distinct_products_for_zone
-from utils.ui import toast
+from mobile.core.app_state import AppState
+from mobile.core.navigation import ROUTES
+from mobile.core.theme import THEME, TOUCH
+from mobile.data.queries import count_distinct_products_for_zone
+from mobile.utils.ui import toast
 
 
 def zone_details_content(page: ft.Page, state: AppState):

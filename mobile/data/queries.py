@@ -233,7 +233,7 @@ def count_distinct_products_for_zone(event_id: int, zone_id: int) -> int:
 # -------------------------------------------------------
 
 def seed_minimal_data() -> None:
-    from data.seeds.seed_minimal_test_data import seed_minimal_data
+    from mobile.data.seeds.seed_minimal_test_data import seed_minimal_data
     with _lock, get_conn() as conn:
         seed_minimal_data(conn)
         conn.commit()

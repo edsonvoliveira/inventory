@@ -7,9 +7,8 @@ Responsibilities:
 
 # desktop/tests/e2e/test_e2e_05_company_switch.py
 
-from desktop.core.bootstrap_service import BootstrapService
+from desktop.app_core_container import build_services
 from desktop.core.session_service import SessionService
-from desktop.core.sync_pull_service import SyncPullService
 from desktop.data.repositories.products_repo import ProductsRepo
 from desktop.data.repositories.app_meta_repo import get_meta
 from desktop.data.db.connection import get_connection
@@ -27,14 +26,14 @@ def test_e2e_05_company_switch(e2e_env):
         repo = ProductsRepo(conn)
 
         if get_meta("bootstrap_done", conn) != "1":
-            BootstrapService().run()
+            build_services().bootstrap.run()
 
         products_before = repo.get_all(active_only=False)
 
         # troca company (simulada)
         SessionService.set_company_server_id(9999)
 
-        SyncPullService().run()
+        build_services().sync_pull.run()
 
         products_after = repo.get_all(active_only=False)
 

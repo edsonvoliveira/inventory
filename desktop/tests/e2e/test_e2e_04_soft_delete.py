@@ -7,7 +7,7 @@ Responsibilities:
 
 # desktop/tests/e2e/test_e2e_04_soft_delete.py
 
-from desktop.core.sync_push_service import SyncPushService
+from desktop.app_core_container import build_services
 from desktop.data.repositories.products_repo import ProductsRepo
 from desktop.data.db.connection import get_connection
 
@@ -35,14 +35,14 @@ def test_e2e_04_soft_delete(e2e_env):
         conn.commit()
 
         # push insert
-        SyncPushService().run()
+        build_services().sync_push.run()
 
         # soft delete local
         repo.soft_delete(record_uuid)
         conn.commit()
 
         # push delete
-        SyncPushService().run()
+        build_services().sync_push.run()
 
         product = repo.get_by_uuid(record_uuid)
 

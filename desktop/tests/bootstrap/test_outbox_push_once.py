@@ -10,7 +10,8 @@ Responsibilities:
 import uuid
 import json
 
-from desktop.core.sync_service import push_outbox_once
+from desktop.app_core_container import build_services
+from desktop.core.session_service import SessionService
 from desktop.data.db.connection import get_connection
 
 # 🔑 Cole aqui um JWT VÁLIDO do Supabase (mesmo que usa no /v1/auth/me e /v1/sync/bootstrap)
@@ -59,7 +60,8 @@ def main():
     record_uuid = seed_outbox_inventory_item()
     print(f"record_uuid inserido na outbox_local: {record_uuid}")
 
-    accepted, failed = push_outbox_once(TEST_JWT)
+    SessionService.set_jwt_token(TEST_JWT)
+    accepted, failed = build_services().sync_push.run()
 
     print(f"accepted: {accepted}")
     print(f"failed:   {failed}")

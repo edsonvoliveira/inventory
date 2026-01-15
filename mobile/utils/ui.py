@@ -8,7 +8,7 @@ Responsibilities:
 
 import flet as ft
 
-from core.theme import THEME
+from mobile.core.theme import THEME
 
 
 def toast(page: ft.Page, text: str, success: bool = True) -> None:

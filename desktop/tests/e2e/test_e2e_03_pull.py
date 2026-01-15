@@ -7,8 +7,7 @@ Responsibilities:
 
 # desktop/tests/e2e/test_e2e_03_pull.py
 
-from desktop.core.bootstrap_service import BootstrapService
-from desktop.core.sync_pull_service import SyncPullService
+from desktop.app_core_container import build_services
 from desktop.data.repositories.products_repo import ProductsRepo
 from desktop.data.repositories.app_meta_repo import get_meta
 from desktop.data.db.connection import get_connection
@@ -27,13 +26,13 @@ def test_e2e_03_pull_incremental(e2e_env):
 
         # garante que bootstrap ja ocorreu
         if get_meta("bootstrap_done", conn) != "1":
-            BootstrapService().run()
+            build_services().bootstrap.run()
 
         last_pull = get_meta("last_pull_at", conn)
         assert last_pull
 
         # ACT
-        SyncPullService().run()
+        build_services().sync_pull.run()
 
         # ASSERT
         products = repo.get_all(active_only=False)

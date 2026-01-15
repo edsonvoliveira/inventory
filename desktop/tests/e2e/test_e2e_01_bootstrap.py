@@ -7,7 +7,7 @@ Responsibilities:
 
 #desktop/tests/e2e/test_e2e_01_bootstrap.py
 
-from desktop.core.bootstrap_service import BootstrapService
+from desktop.app_core_container import build_services
 from desktop.data.repositories.app_meta_repo import get_meta
 from desktop.data.repositories.companies_repo import CompaniesRepo
 from desktop.data.repositories.products_repo import ProductsRepo
@@ -28,7 +28,7 @@ def test_e2e_01_bootstrap_initial_load(e2e_env):
     conn = None
 
     # Act
-    BootstrapService().run()
+    build_services().bootstrap.run()
 
     # Assert
     # Reabrimos a conexão para validar o estado persistido

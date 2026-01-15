@@ -13,15 +13,15 @@ Responsibilities:
 
 import flet as ft
 
-from core.app_state import AppState
-from core.navigation import ROUTES
-from core.theme import THEME, TOUCH
-from data.queries import get_local_profile, init_db, seed_minimal_data
-from views.counting.counting_view import counting_page_content
-from views.dashboard.dashboard_view import dashboard_content
-from views.login_view import login_content
-from views.profile_view import profile_content
-from views.zone_details_view import zone_details_content
+from mobile.core.app_state import AppState
+from mobile.core.navigation import ROUTES
+from mobile.core.theme import THEME, TOUCH
+from mobile.data.queries import get_local_profile, init_db, seed_minimal_data
+from mobile.views.counting.counting_view import counting_page_content
+from mobile.views.dashboard.dashboard_view import dashboard_content
+from mobile.views.login_view import login_content
+from mobile.views.profile_view import profile_content
+from mobile.views.zone_details_view import zone_details_content
 
 STATE = AppState()
 
