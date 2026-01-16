@@ -26,16 +26,18 @@ def login_content(page: ft.Page, state: AppState):
     def on_login(e):
         email = (email_field.value or "").strip()
         password = (password_field.value or "").strip()
-        try:
-            auth_service.authenticate(email, password)
+        result = auth_service.authenticate(email, password)
+        if result.ok:
             if state.sync_scheduler is None:
                 state.sync_scheduler = SyncScheduler()
                 state.sync_scheduler.start()
+            state.set_session(email=email)
             state.profile = {"email": email}
             toast(page, "Login bem-sucedido", success=True)
             page.go(ROUTES["dashboard"])
-        except Exception as ex:
-            toast(page, f"Erro no login: {ex}", success=False)
+        else:
+            message = "Login invalido! Verifique as credenciais e tente novamente."
+            toast(page, message, success=False)
 
     return ft.Column(
         [

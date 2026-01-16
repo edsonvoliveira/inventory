@@ -10,8 +10,8 @@ import flet as ft
 
 from desktop.core.app_state import AppState
 from desktop.core.layout import AppLayout
+from desktop.core.navigation import NAV_ITEMS
 from desktop.views.auth.login_view import LoginView
-from desktop.views.router import render_page
 
 
 class AppRouter:
@@ -21,35 +21,63 @@ class AppRouter:
         self.layout = layout
         self.login_view = login_view
         self.main_view = ft.View("/", controls=[self.layout.main_layout])
+        self._route_map = {item["rota"]: item for item in NAV_ITEMS}
 
-    def renderizar_pagina(self, rota):
-        return render_page(rota, self.page, self.on_route_change)
+    def _get_entry(self, rota: str):
+        return self._route_map.get(rota)
+
+    def renderizar_pagina(self, rota: str):
+        entry = self._get_entry(rota)
+        if not entry:
+            return ft.Column(expand=True, spacing=10)
+        factory = entry.get("factory")
+        if not factory:
+            return ft.Column(expand=True, spacing=10)
+        return factory(self.page, self.on_route_change)
 
     def on_route_change(self, e):
-        # 1. LÓGICA DE PROTEÇÃO DE ROTA
-        # Se NÃO ESTIVER LOGADO E a rota não for /login, força o login
-        if not self.app_state.is_authenticated and self.page.route != "/login":
-            self.page.go("/login")
-            return
+        try:
+            route = self.page.route or "/"
+            entry = self._get_entry(route)
 
-        # 2. ROTA DE LOGIN (Exibir View de Login)
-        if self.page.route == "/login":
-            self.page.views.clear()
-            self.login_view.apply_theme(self.layout.tokens)
-            self.page.views.append(self.login_view)
+            # Route protection
+            if entry and entry.get("protected") and not self.app_state.is_authenticated and route != "/login":
+                self.page.go("/login")
+                return
+
+            # Login route
+            if route == "/login":
+                self.page.views.clear()
+                self.login_view.apply_theme(self.layout.tokens)
+                self.page.views.append(self.login_view)
+                self.page.update()
+                return
+
+            if not entry:
+                self.page.go("/")
+                return
+
+            # App main view
+            self.layout.set_route(route)
+
+            if self.main_view not in self.page.views:
+                self.page.views.clear()
+                self.page.views.append(self.main_view)
+
+            # Update content
+            nova_coluna = self.renderizar_pagina(route)
+            self.layout.set_content(nova_coluna)
+
+            # Single update at end
             self.page.update()
-            return
+        except Exception:
+            self._handle_error()
 
-        # 3. ROTA DE APLICATIVO PRINCIPAL (Reutiliza View existente)
-        self.layout.set_route(self.page.route)
-
-        if self.main_view not in self.page.views:
-            self.page.views.clear()
-            self.page.views.append(self.main_view)
-
-        # 4. ATUALIZAR CONTEÚDO (sem page.update() aqui)
-        nova_coluna = self.renderizar_pagina(self.page.route)
-        self.layout.set_content(nova_coluna)
-
-        # Uma única chamada de update no final
+    def _handle_error(self) -> None:
+        self.page.snack_bar = ft.SnackBar(
+            content=ft.Text("Erro inesperado. Tente novamente."),
+            bgcolor=ft.Colors.RED_400,
+            open=True,
+            duration=2000,
+        )
         self.page.update()

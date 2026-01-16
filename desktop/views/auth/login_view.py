@@ -12,8 +12,10 @@ from desktop.core.app_state import AppState
 from desktop.core.auth_service import AuthService
 from desktop.core.strings import (
     LOGIN_BUTTON,
+    LOGIN_EMAIL_LABEL,
     LOGIN_FORGOT,
     LOGIN_INVALID,
+    LOGIN_PASSWORD_LABEL,
     LOGIN_REQUIRED,
     LOGIN_TITLE,
 )
@@ -41,13 +43,13 @@ class LoginView(ft.View):
         
         # ---------------- Controles de Formulário ----------------
         self.email_field = ft.TextField(
-            label="Email",
+            label=LOGIN_EMAIL_LABEL,
             width=300,
             prefix_icon=ft.Icons.MAIL_OUTLINE,
             autofocus=True,
         )
         self.password_field = ft.TextField(
-            label="Senha",
+            label=LOGIN_PASSWORD_LABEL,
             password=True,
             can_reveal_password=True,
             width=300,
@@ -113,10 +115,11 @@ class LoginView(ft.View):
             self.page.update()
             return
             
-        if self.auth_service.authenticate(email, password):
-            self.app_state.is_authenticated = True
+        result = self.auth_service.authenticate(email, password)
+        if result.ok:
+            self.app_state.set_session(email=email)
             self.on_login_success(e)
         else:
-            self.status_message.value = LOGIN_INVALID
+            self.status_message.value = result.message or LOGIN_INVALID
             self.password_field.value = ""
             self.page.update()

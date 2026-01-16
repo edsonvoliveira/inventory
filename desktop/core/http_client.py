@@ -15,6 +15,9 @@ class DVServerError(Exception):
     pass
 
 
+DEFAULT_TIMEOUT = 10
+
+
 def _base_url() -> str:
     """
     Base URL do DV Server.
@@ -45,7 +48,7 @@ def get(
     *,
     jwt_token: str,
     params: Optional[dict[str, Any]] = None,
-    timeout: int = 10,
+    timeout: int = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
     url = _build_url(path)
     try:
@@ -56,10 +59,10 @@ def get(
             timeout=timeout,
         )
     except requests.RequestException as e:
-        raise DVServerError(f"DV Server request failed (GET {url}): {e}") from e
+        raise DVServerError("Nao foi possivel conectar ao servidor.") from e
 
     if not (200 <= resp.status_code < 300):
-        raise DVServerError(f"DV Server error {resp.status_code} (GET {url}): {resp.text}")
+        raise DVServerError("Servidor retornou erro ao processar a requisicao.")
 
     # Alguns endpoints podem retornar 204 (sem body)
     if resp.status_code == 204 or not resp.content:
@@ -73,7 +76,7 @@ def post(
     *,
     jwt_token: str,
     json_body: dict[str, Any],
-    timeout: int = 10,
+    timeout: int = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
     url = _build_url(path)
     try:
@@ -84,10 +87,10 @@ def post(
             timeout=timeout,
         )
     except requests.RequestException as e:
-        raise DVServerError(f"DV Server request failed (POST {url}): {e}") from e
+        raise DVServerError("Nao foi possivel conectar ao servidor.") from e
 
     if not (200 <= resp.status_code < 300):
-        raise DVServerError(f"DV Server error {resp.status_code} (POST {url}): {resp.text}")
+        raise DVServerError("Servidor retornou erro ao processar a requisicao.")
 
     if resp.status_code == 204 or not resp.content:
         return {}

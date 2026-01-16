@@ -127,6 +127,11 @@ def company_get(id: int):
         return dict(zip([c[0] for c in cur.description], row)) if row else None
 
 
+def company_get_local_id_by_server_id(company_server_id: int) -> Optional[int]:
+    with _get_conn() as conn:
+        return _company_id_by_server_id(conn, company_server_id)
+
+
 def company_update(id: int, name: str, nif: Optional[str]):
     with _get_conn() as conn:
         now = _now()

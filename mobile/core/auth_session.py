@@ -5,7 +5,7 @@ from typing import Any, Mapping
 
 import requests
 
-from mobile.data.repositories.app_meta_repo import get_meta, set_meta
+from mobile.data.repositories.app_meta_repo import delete_meta, get_meta, set_meta
 
 
 class AuthSession:
@@ -76,3 +76,9 @@ class AuthSession:
             set_meta("expires_in", str(expires_in_int))
         if expires_at_int is not None:
             set_meta("expires_at", str(expires_at_int))
+
+    def logout(self) -> None:
+        delete_meta("jwt_token")
+        delete_meta("refresh_token")
+        delete_meta("expires_in")
+        delete_meta("expires_at")

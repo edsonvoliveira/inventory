@@ -8,6 +8,9 @@ import requests
 from app_core.ports.http_port import HttpPort
 
 
+DEFAULT_TIMEOUT = 10
+
+
 class MobileHttpAdapter(HttpPort):
     def get(
         self,
@@ -21,13 +24,13 @@ class MobileHttpAdapter(HttpPort):
                 url,
                 headers=_headers(token),
                 params=dict(params or {}),
-                timeout=10,
+                timeout=DEFAULT_TIMEOUT,
             )
         except requests.RequestException as exc:
-            raise RuntimeError(f"Server request failed (GET {url}): {exc}") from exc
+            raise RuntimeError("Nao foi possivel conectar ao servidor.") from exc
 
         if not (200 <= resp.status_code < 300):
-            raise RuntimeError(f"Server error {resp.status_code} (GET {url}): {resp.text}")
+            raise RuntimeError("Servidor retornou erro ao processar a requisicao.")
 
         if resp.status_code == 204 or not resp.content:
             return {}
@@ -46,13 +49,13 @@ class MobileHttpAdapter(HttpPort):
                 url,
                 headers=_headers(token),
                 json=dict(json or {}),
-                timeout=10,
+                timeout=DEFAULT_TIMEOUT,
             )
         except requests.RequestException as exc:
-            raise RuntimeError(f"Server request failed (POST {url}): {exc}") from exc
+            raise RuntimeError("Nao foi possivel conectar ao servidor.") from exc
 
         if not (200 <= resp.status_code < 300):
-            raise RuntimeError(f"Server error {resp.status_code} (POST {url}): {resp.text}")
+            raise RuntimeError("Servidor retornou erro ao processar a requisicao.")
 
         if resp.status_code == 204 or not resp.content:
             return {}

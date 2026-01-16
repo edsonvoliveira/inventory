@@ -8,6 +8,7 @@ Responsibilities:
 
 import flet as ft
 
+from desktop.core.company_service import CompanyService
 from desktop.core.ui_constants import ICON_ADD, ICON_DELETE, ICON_EDIT
 from desktop.core.strings import (
     COMPANY_ADD,
@@ -16,21 +17,25 @@ from desktop.core.strings import (
     COMPANY_TITLE,
     BTN_CREATE,
     BTN_SAVE,
+    DIALOG_CONFIRM_DELETE,
     ERROR_REQUIRED_NAME,
     FIELD_NAME,
     FIELD_NIF,
     HINT_COMPANY_NAME,
     HINT_NIF,
 )
-from desktop.data.repository import company_create, company_delete, company_get_all, company_update
-from desktop.utils.dialogs import action_button, form_column, open_form_dialog
-from desktop.utils.validation import is_required
+from desktop.utils.dialogs import action_button, confirm_dialog, form_column, open_form_dialog
 from desktop.utils.list_row import build_list_row
 
 
 def render_company_view(page: ft.Page, on_refresh):
     coluna = ft.Column(expand=True, spacing=10)
-    empresas = company_get_all()
+    service = CompanyService()
+    result = service.list()
+    empresas = result.data or []
+
+    if not result.ok:
+        coluna.controls.append(ft.Text(result.message or "Erro ao carregar empresas."))
 
     def criar_empresa(e):
         dlg_name = ft.TextField(label=FIELD_NAME, hint_text=HINT_COMPANY_NAME, autofocus=True)
@@ -40,12 +45,12 @@ def render_company_view(page: ft.Page, on_refresh):
             nome = dlg_name.value or ""
             nif = dlg_nif.value.strip() if dlg_nif.value else None
 
-            if not is_required(nome):
-                dlg_name.error_text = ERROR_REQUIRED_NAME
+            result = service.create(nome, nif)
+            if not result.ok:
+                dlg_name.error_text = result.message or ERROR_REQUIRED_NAME
                 dlg_name.update()
                 return
 
-            company_create(nome.strip(), nif)
             dlg.open = False
             page.update()
             on_refresh(None)
@@ -75,11 +80,15 @@ def render_company_view(page: ft.Page, on_refresh):
             dlg_name = ft.TextField(label=FIELD_NAME, value=emp["name"])
             dlg_nif = ft.TextField(label=FIELD_NIF, value=emp["nif"] or "")
             def salvar_edicao(e, dlg):
-                company_update(
+                result = service.update(
                     emp["id"],
                     (dlg_name.value or "").strip(),
                     (dlg_nif.value or "").strip() or None,
                 )
+                if not result.ok:
+                    dlg_name.error_text = result.message or ERROR_REQUIRED_NAME
+                    dlg_name.update()
+                    return
                 dlg.open = False
                 page.update()
                 on_refresh(None)
@@ -106,7 +115,11 @@ def render_company_view(page: ft.Page, on_refresh):
                     action_button(
                         ICON_DELETE,
                         page.theme.color_scheme.error,
-                        lambda e, id=emp["id"]: [company_delete(id), on_refresh(None)],
+                        lambda e, id=emp["id"]: confirm_dialog(
+                            page,
+                            DIALOG_CONFIRM_DELETE,
+                            lambda: [service.delete(id), on_refresh(None)],
+                        ),
                     ),
                 ],
             )

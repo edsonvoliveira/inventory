@@ -12,7 +12,7 @@ LOGIN_TITLE = "Acesso ao Sistema"
 LOGIN_BUTTON = "ENTRAR"
 LOGIN_FORGOT = "Esqueceu a Senha?"
 LOGIN_REQUIRED = "Email e Senha são obrigatórios."
-LOGIN_INVALID = "Credenciais inválidas. Tente novamente."
+LOGIN_INVALID = "Login invalido! Verifique as credenciais e tente novamente."
 
 SECTION_HOME = "Início"
 SECTION_COMPANY = "Empresas"
@@ -81,5 +81,18 @@ ERROR_REQUIRED_NAME = "O nome é obrigatório"
 ERROR_INVALID_PRICE = "Preço inválido"
 
 BTN_CANCEL = "Cancelar"
+BTN_CONFIRM = "Confirmar"
 BTN_CREATE = "Criar"
 BTN_SAVE = "Salvar"
+
+DIALOG_CONFIRM_TITLE = "Confirmar"
+DIALOG_CONFIRM_DELETE = "Deseja remover este item?"
+DIALOG_ERROR_TITLE = "Erro"
+DIALOG_SUCCESS_TITLE = "Sucesso"
+MSG_ACTION_SUCCESS = "Operacao realizada com sucesso."
+
+
+FIELD_REQUIRED = "Obrigatorio"
+
+LOGIN_EMAIL_LABEL = 'Email'
+LOGIN_PASSWORD_LABEL = 'Senha'

@@ -26,3 +26,10 @@ def set_meta(key: str, value: str):
     )
     conn.commit()
     conn.close()
+
+
+def delete_meta(key: str) -> None:
+    conn = get_connection()
+    conn.execute("DELETE FROM app_meta WHERE key = ?", (key,))
+    conn.commit()
+    conn.close()

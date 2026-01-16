@@ -8,14 +8,14 @@ Responsibilities:
 
 import flet as ft
 
-from desktop.core.navigation import SECTIONS
+from desktop.core.navigation import NAV_ITEMS
 from desktop.core.theme import build_theme, get_theme_tokens
 from desktop.widgets.side_menu import SideMenu
 from desktop.widgets.top_bar import TopBar
 
 
 class AppLayout:
-    def __init__(self, page: ft.Page, on_toggle_theme, on_navigate):
+    def __init__(self, page: ft.Page, on_toggle_theme, on_navigate, on_logout):
         self.page = page
         self.menu_expandido = True
         self.rota_atual = "/"
@@ -30,11 +30,12 @@ class AppLayout:
             content=ft.Column(expand=True, spacing=10),
         )
 
-        self.side_menu = SideMenu(SECTIONS, on_navigate, self._alternar_menu, self.tokens)
+        self.side_menu = SideMenu(NAV_ITEMS, on_navigate, self._alternar_menu, self.tokens)
         self.top_bar = TopBar(
             on_help=lambda e: print("Abrir ajuda"),
             on_toggle_theme=on_toggle_theme,
-            on_notifications=lambda e: print("Notificações clicadas"),
+            on_notifications=lambda e: print("Notificacoes clicadas"),
+            on_logout=on_logout,
             tokens=self.tokens,
         )
 
@@ -87,3 +88,4 @@ class AppLayout:
                 self.conteudo.content.controls.extend(content.controls)
             else:
                 self.conteudo.content.controls.append(content)
+

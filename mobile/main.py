@@ -17,6 +17,7 @@ from mobile.core.app_state import AppState
 from mobile.core.navigation import ROUTES
 from mobile.core.theme import THEME, TOUCH
 from mobile.data.queries import get_local_profile, init_db, seed_minimal_data
+from mobile.utils.ui import toast
 from mobile.views.counting.counting_view import counting_page_content
 from mobile.views.dashboard.dashboard_view import dashboard_content
 from mobile.views.login_view import login_content
@@ -107,14 +108,18 @@ class ScreenFactory:
         self.registry[route] = content_builder
 
     def show(self, route: str):
-        builder = self.registry.get(route)
-        if builder:
-            if self.footer:
-                self.footer.visible = route != ROUTES["login"]
-            self.main_container.controls.clear()
-            self.main_container.controls.append(builder(self.page))
-            self.page.update()
-        else:
+        try:
+            builder = self.registry.get(route)
+            if builder:
+                if self.footer:
+                    self.footer.visible = route != ROUTES["login"]
+                self.main_container.controls.clear()
+                self.main_container.controls.append(builder(self.page))
+                self.page.update()
+            else:
+                self.page.go(ROUTES["login"])
+        except Exception:
+            toast(self.page, "Erro inesperado. Tente novamente.", success=False)
             self.page.go(ROUTES["login"])
 
 

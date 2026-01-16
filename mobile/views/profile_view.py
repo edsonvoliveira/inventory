@@ -9,6 +9,7 @@ Responsibilities:
 import flet as ft
 
 from mobile.core.app_state import AppState
+from mobile.core.auth_service import AuthService
 from mobile.core.navigation import ROUTES
 from mobile.core.theme import THEME, TOUCH
 from mobile.data.db.connection import get_connection
@@ -17,6 +18,7 @@ from mobile.utils.ui import toast
 
 
 def profile_content(page: ft.Page, state: AppState):
+    auth_service = AuthService()
     prof = state.profile or {}
     last_pull_at = get_meta("last_pull_at") or "n/a"
     conn = get_connection()
@@ -58,7 +60,7 @@ def profile_content(page: ft.Page, state: AppState):
                 ),
                 ft.ElevatedButton(
                     "Sair",
-                    on_click=lambda e: page.go(ROUTES["login"]),
+                    on_click=lambda e: _handle_logout(e, page, state, auth_service),
                     height=TOUCH["button_height"],
                     bgcolor=THEME["danger"],
                     color="white",
@@ -106,3 +108,16 @@ def profile_content(page: ft.Page, state: AppState):
         expand=True,
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
     )
+
+
+def _handle_logout(e, page: ft.Page, state: AppState, auth_service: AuthService) -> None:
+    result = auth_service.logout()
+    if not result.ok:
+        toast(page, "Nao foi possivel sair agora. Tente novamente.", success=False)
+        return
+    state.clear_session()
+    if state.sync_scheduler is not None:
+        state.sync_scheduler.stop()
+        state.sync_scheduler = None
+    toast(page, "Sessao encerrada.", success=True)
+    page.go(ROUTES["login"])

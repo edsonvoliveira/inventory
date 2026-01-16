@@ -44,5 +44,7 @@ async def me(user: CurrentUser = Depends(get_current_user)):
     return {
         "auth_uid": user.auth_uid,
         "email": user.email,
+        "user_id": user.db_user_id,
+        "company_id": user.company_server_id,
     }
 
