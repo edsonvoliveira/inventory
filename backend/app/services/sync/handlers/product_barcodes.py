@@ -59,10 +59,13 @@ class ProductBarcodeSyncHandler(BaseSyncHandler):
     def insert(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
 
+        product_id = payload.get("product_id", payload.get("product_server_id"))
+        if product_id is None:
+            raise RuntimeError("product_id ausente ou invalido")
         data = {
             "uuid": record_uuid,
             "company_id": user.company_server_id,
-            "product_id": payload["product_id"],  # server_id do produto
+            "product_id": product_id,  # server_id do produto
             "barcode": payload["barcode"],
             "description": payload.get("description"),
             "is_active": payload.get("is_active", True),

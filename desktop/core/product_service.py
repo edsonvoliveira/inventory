@@ -11,14 +11,13 @@ from datetime import datetime
 
 from desktop.core.result import Result
 from desktop.core.strings import ERROR_INVALID_PRICE
-from desktop.core.session_service import SessionService
+from desktop.data.repositories.product_barcodes_repo import ProductBarcodesRepo
+from desktop.data.repositories.products_repo import ProductsRepo
 from desktop.data.repository import (
     company_get_all,
-    company_get_local_id_by_server_id,
-    product_create,
-    product_delete,
+    product_barcode_get_uuids_by_product_server_id,
     product_get_all,
-    product_update,
+    product_get_uuid_and_server_id,
 )
 from desktop.utils.validation import is_required, parse_float
 
@@ -63,15 +62,17 @@ class ProductService:
             )
         unit = unit_of_measure.strip() if unit_of_measure and unit_of_measure.strip() else "UN"
         try:
-            product_create(
-                sku.strip(),
-                barcode,
-                name.strip(),
-                unit_cost,
-                unit,
-                datetime.now().isoformat(),
-                company_id,
+            ProductsRepo().create(
+                {
+                    "sku": sku.strip(),
+                    "name": name.strip(),
+                    "uom_base": unit,
+                    "uom_inventory": unit,
+                    "cost_price": unit_cost,
+                    "description": None,
+                }
             )
+            # Barcode is created only when product has server_id (synced).
         except Exception:
             return Result(
                 ok=False,
@@ -103,16 +104,27 @@ class ProductService:
             )
         unit = unit_of_measure.strip() if unit_of_measure and unit_of_measure.strip() else "UN"
         try:
-            product_update(
-                product_id,
-                sku.strip(),
-                barcode,
-                name.strip(),
-                unit_cost,
-                unit,
-                datetime.now().isoformat(),
-                company_id,
+            product_uuid, product_server_id = product_get_uuid_and_server_id(product_id)
+            if not product_uuid:
+                return Result(ok=False, message="Produto nao encontrado.", error_code="PRODUCT_NOT_FOUND")
+            ProductsRepo().update(
+                product_uuid,
+                {
+                    "sku": sku.strip(),
+                    "name": name.strip(),
+                    "uom_base": unit,
+                    "uom_inventory": unit,
+                    "cost_price": unit_cost,
+                },
             )
+            if barcode and product_server_id is not None:
+                ProductBarcodesRepo().create(
+                    {
+                        "product_server_id": int(product_server_id),
+                        "barcode": barcode.strip(),
+                        "description": None,
+                    }
+                )
         except Exception:
             return Result(
                 ok=False,
@@ -123,7 +135,17 @@ class ProductService:
 
     def delete(self, product_id: int) -> Result[None]:
         try:
-            product_delete(product_id)
+            product_uuid, product_server_id = product_get_uuid_and_server_id(product_id)
+            if not product_uuid:
+                return Result(
+                    ok=False,
+                    message="Produto nao encontrado.",
+                    error_code="PRODUCT_NOT_FOUND",
+                )
+            ProductsRepo().soft_delete(product_uuid)
+            if product_server_id is not None:
+                for barcode_uuid in product_barcode_get_uuids_by_product_server_id(product_server_id):
+                    ProductBarcodesRepo().soft_delete(barcode_uuid)
         except Exception:
             return Result(
                 ok=False,

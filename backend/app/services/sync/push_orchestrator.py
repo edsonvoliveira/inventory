@@ -16,6 +16,7 @@ class PushOrchestrator:
     def run(self, items: list[SyncItem], user):
         accepted: list[str] = []
         failed: list[str] = []
+        rejected: dict[str, str] = {}
 
         for item in items:
             handler = SYNC_HANDLERS.get(item.table_name)
@@ -51,7 +52,8 @@ class PushOrchestrator:
 
                 accepted.append(item.record_uuid)
 
-            except Exception:
+            except Exception as exc:
                 failed.append(item.record_uuid)
+                rejected[item.record_uuid] = str(exc) or "server_rejected"
 
-        return accepted, failed
+        return accepted, failed, rejected

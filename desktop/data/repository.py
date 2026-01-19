@@ -531,7 +531,7 @@ def product_get(id: int):
     with _get_conn() as conn:
         cur = conn.execute(
             """
-            SELECT id, server_id, sku, name, cost_price, uom_inventory, updated_at, company_server_id
+            SELECT id, uuid, server_id, sku, name, cost_price, uom_inventory, updated_at, company_server_id
             FROM products_local
             WHERE id = ? AND deleted_at IS NULL
             """,
@@ -540,7 +540,17 @@ def product_get(id: int):
         row = cur.fetchone()
         if not row:
             return None
-        product_id, product_server_id, sku, name, cost_price, uom_inventory, updated_at, company_server_id = row
+        (
+            product_id,
+            product_uuid,
+            product_server_id,
+            sku,
+            name,
+            cost_price,
+            uom_inventory,
+            updated_at,
+            company_server_id,
+        ) = row
         barcode_row = conn.execute(
             """
             SELECT barcode
@@ -552,6 +562,7 @@ def product_get(id: int):
         ).fetchone()
         return {
             "id": product_id,
+            "uuid": product_uuid,
             "sku": sku,
             "barcode": barcode_row[0] if barcode_row else "",
             "name": name,
@@ -560,6 +571,34 @@ def product_get(id: int):
             "last_updated": updated_at,
             "company_id": _company_id_by_server_id(conn, company_server_id),
         }
+
+
+def product_get_uuid_and_server_id(product_id: int) -> tuple[str | None, int | None]:
+    with _get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT uuid, server_id
+            FROM products_local
+            WHERE id = ? AND deleted_at IS NULL
+            """,
+            (product_id,),
+        ).fetchone()
+        if not row:
+            return None, None
+        return row[0], row[1]
+
+
+def product_barcode_get_uuids_by_product_server_id(product_server_id: int) -> list[str]:
+    with _get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT uuid
+            FROM product_barcodes_local
+            WHERE product_server_id = ? AND deleted_at IS NULL
+            """,
+            (product_server_id,),
+        ).fetchall()
+        return [r[0] for r in rows]
 
 
 def product_update(

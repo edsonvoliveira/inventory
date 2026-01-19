@@ -64,12 +64,17 @@ class ProductSyncHandler(BaseSyncHandler):
     ) -> None:
         sb = get_supabase_service_client()
 
+        category_id = payload.get("category_id", payload.get("category_server_id"))
+        if category_id == "":
+            category_id = None
+
         data = {
             "uuid": record_uuid,
             "company_id": user.company_server_id,
             "sku": payload["sku"],
             "name": payload["name"],
             "description": payload.get("description"),
+            "category_id": category_id,
             "uom_base": payload["uom_base"],
             "uom_inventory": payload["uom_inventory"],
             "conversion_factor": payload.get("conversion_factor", 1),
@@ -95,6 +100,10 @@ class ProductSyncHandler(BaseSyncHandler):
 
         update_data = {}
 
+        category_id = payload.get("category_id", payload.get("category_server_id"))
+        if category_id is not None and category_id != "":
+            update_data["category_id"] = category_id
+
         allowed_fields = [
             "sku",
             "name",
@@ -114,7 +123,7 @@ class ProductSyncHandler(BaseSyncHandler):
                 update_data[field] = payload[field]
 
         if not update_data:
-            raise RuntimeError("Nenhum campo válido para update de product")
+            raise RuntimeError("Nenhum campo valido para update de product")
 
         sb.table("products").update(update_data).eq(
             "uuid", record_uuid

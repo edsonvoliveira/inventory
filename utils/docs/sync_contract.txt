@@ -1,0 +1,230 @@
+0) Contrato global (vale para todas as entidades sincronizadas)
+
+Identidade e idempotência
+	•	Chave de idempotência: uuid (string/UUID) gerado no cliente (desktop/mobile).
+	•	Chave numérica: id (int) no servidor pode existir, mas o contrato de sync é por uuid.
+	•	Push idempotente: insert/update deve ser UPSERT por uuid (ou insert com “on conflict (uuid) do update” no lado do handler/DB).
+
+Incremental (pull)
+	•	Parâmetro: since (datetime ISO 8601).
+	•	Regra: retornar registros com updated_at > since (ou >= se você padronizou assim, mas mantenha consistente).
+	•	since deve ser tratado como UTC (timezone-aware). Se vier naive, assumir UTC.
+
+Soft delete
+	•	Nunca hard delete via client.
+	•	Padrão por entidade:
+	•	deleted_at (timestamp UTC) ou
+	•	is_active (bool) ou ambos.
+	•	Pull deve incluir deletados (para o cliente apagar/ocultar localmente), ou um mecanismo equivalente.
+
+Conflito (mínimo viável)
+	•	Estratégia MVP recomendada: Last-Write-Wins por updated_at + “server is source of truth”.
+	•	Regra objetiva:
+	•	Se client.updated_at <= server.updated_at, servidor ignora update.
+	•	Se client.updated_at > server.updated_at, servidor aplica.
+
+Segurança / RLS
+	•	Todas as queries no servidor devem ser filtradas por company_id (direta ou indiretamente via joins).
+	•	Mobile não deve conseguir escrever em entidades administrativas.
+
+⸻
+
+1) Contrato por entidade
+
+A) Entidades locais (não sincronizam)
+
+app_meta (local only)
+	•	Onde existe: Desktop SQLite / Mobile SQLite.
+	•	Finalidade: controle local (bootstrap_done, last_pull_at, company_server_id, etc).
+	•	Sync: NÃO sincroniza.
+
+outbox_local (local only)
+	•	Onde existe: Desktop/Mobile (SQLite).
+	•	Finalidade: fila offline-first para push.
+	•	Sync: NÃO sincroniza (mas “dirige” o push).
+
+sqlite_sequence (local)
+	•	SQLite interno.
+	•	Sync: NÃO.
+
+⸻
+
+B) Master Data (administrativo; Desktop gerencia; Mobile lê)
+
+companies / companies_local
+	•	Fonte de verdade: DB Server.
+	•	Desktop: leitura e (se MVP permitir) edição limitada (dados da empresa).
+	•	Mobile: read-only.
+	•	Pull filter: company_id == <empresa do token> (ou id == company_id).
+	•	Since: por updated_at.
+	•	Push: opcional (MVP normalmente não precisa). Se existir:
+	•	somente admin pode atualizar.
+	•	insert geralmente não via app (criação de empresa é fluxo de onboarding/admin).
+
+users / users_local
+	•	Fonte de verdade: DB Server.
+	•	Desktop: admin cria/ativa/desativa users (perfil de sistema).
+	•	Mobile: read-only (para exibir “meu perfil” e nomes).
+	•	Pull filter: usuários vinculados à empresa.
+	•	Since: updated_at.
+	•	Push: Desktop (admin) apenas:
+	•	criar “user profile” (não necessariamente Supabase Auth user).
+	•	atualizar permissões/estado.
+	•	soft delete / desativar.
+
+products / products_local
+	•	Fonte de verdade: DB Server.
+	•	Desktop: CRUD completo (cadastro e manutenção).
+	•	Mobile: read-only (consulta durante contagem).
+	•	Pull filter: produtos da empresa.
+	•	Since: updated_at.
+	•	Push:
+	•	Desktop cria/atualiza/soft delete.
+	•	Mobile não escreve.
+
+product_categories / product_categories_local
+	•	Igual a products:
+	•	Desktop CRUD, Mobile read-only
+	•	updated_at incremental
+	•	soft delete.
+
+product_barcodes / product_barcodes_local
+	•	Fonte de verdade: DB Server.
+	•	Desktop: CRUD (associar códigos de barras a produtos).
+	•	Mobile: read-only (scanner resolve produto).
+	•	Pull filter: por empresa (via produto).
+	•	Since: updated_at.
+	•	Push: Desktop.
+
+locations / locations_local
+	•	Fonte de verdade: DB Server.
+	•	Desktop: CRUD (locais/armazenagem).
+	•	Mobile: read-only.
+	•	Pull filter: por empresa.
+	•	Since: updated_at.
+	•	Push: Desktop.
+
+⸻
+
+C) Operação de inventário (eventos, zonas, alvos, progresso)
+
+inventory_events / inventory_events_local
+	•	Fonte de verdade: DB Server.
+	•	Desktop: cria e gerencia eventos (abertura/fechamento).
+	•	Mobile: read-only (participa do evento).
+	•	Pull filter: inventory_events.company_id == company_id.
+	•	Since: updated_at.
+	•	Push:
+	•	Desktop cria/atualiza (ex.: status, datas).
+	•	Mobile não cria evento.
+	•	Soft delete: (raramente usado; preferir “cancelled/closed” em vez de apagar).
+
+zones / zones_local
+	•	Fonte de verdade: DB Server.
+	•	Desktop: CRUD de zonas vinculadas a um evento.
+	•	Mobile: read-only (lista e detalhes).
+	•	Pull filter: zones -> inventory_event_id -> company_id.
+	•	Since: updated_at.
+	•	Push: Desktop.
+
+inventory_event_targets / inventory_event_targets_local
+	•	Fonte de verdade: DB Server.
+	•	Desktop: define “targets” (o que será contado) por evento/zona/produto.
+	•	Mobile: read-only (guia a contagem).
+	•	Pull filter: por company via evento.
+	•	Since: updated_at.
+	•	Push: Desktop.
+
+zone_user_progress / zone_user_progress_local
+	•	Fonte de verdade: DB Server (agrega “progresso por utilizador e zona”).
+	•	Desktop: leitura (monitoramento) e, opcionalmente, reset/controle (admin).
+	•	Mobile: escreve (início/fim de zona; progresso).
+	•	Pull filter: por company via zone -> inventory_event_id -> company_id.
+	•	Since: updated_at.
+	•	Push (Mobile):
+	•	insert: quando usuário começa zona (started_at, count_type, device_id).
+	•	update: durante contagem (items_counted, qty_total, is_finished, finished_at).
+	•	soft delete: normalmente não; se precisar, por deleted_at.
+	•	Conflito: se multi-device, preferir:
+	•	“registro por (zone_id, user_id, device_id, count_type)” ou
+	•	bloquear concorrência por regra (um ativo por zona/usuário).
+
+inventory_items / inventory_items_local
+	•	Fonte de verdade: DB Server (itens contados).
+	•	Desktop: leitura e correções (se MVP permitir).
+	•	Mobile: principal writer (contagens).
+	•	Pull filter: por company via zone -> event -> company.
+	•	Since: updated_at.
+	•	Push (Mobile):
+	•	insert: novo item contado (zone_id, product_id, qty_counted, device_timestamp, source, user_id).
+	•	update: ajuste de qty (se permitir).
+	•	soft delete: remover contagem (marca deleted_at).
+	•	Idempotência: UPSERT por uuid.
+	•	Conflito: MVP LWW; se quiser robustez:
+	•	usar “append-only” (cada contagem é um evento) e consolidar no server, mas isso é pós-MVP.
+
+⸻
+
+D) Dispositivos (registro e bloqueio)
+
+devices / devices_local
+	•	Fonte de verdade: DB Server.
+	•	Desktop: escreve/atualiza registro do próprio device (e pode bloquear via admin).
+	•	Mobile: idem.
+	•	Pull filter: por company e/ou por user (depende do seu schema).
+	•	Since: updated_at.
+	•	Push:
+	•	insert: primeiro uso do device.
+	•	update: versão app, status.
+	•	soft delete: não; normalmente “is_blocked”.
+
+⸻
+
+2) Matriz rápida de direção (para eliminar dúvida)
+	•	Desktop escreve: companies (talvez), users, products, categories, barcodes, locations, events, zones, targets, (eventualmente correções em items/progress), devices.
+	•	Mobile escreve: inventory_items, zone_user_progress, devices.
+	•	DB Server escreve (fonte): tudo o que é master data e o estado consolidado.
+
+⸻
+
+3) Observação importante sobre company_server_id
+	•	No seu projeto, pelos testes e handlers, o padrão mais consistente é:
+company_server_id = int (id numérico da company no DB Server).
+	•	uuid pode existir em paralelo, mas o “scope” e o filtro por empresa do sync (RLS e handlers) está claramente orientado a int.
+
+
+4) Idempotencia por entidade (regras minimas)
+	-	Regra geral: UUID e a chave idempotente em todo PUSH; insert/update devem ser UPSERT por uuid.
+
+companies
+	-	Update limitado: reenvio do mesmo update nao deve alterar estado nem gerar efeitos colaterais.
+
+users
+	-	Update limitado: reenvio do mesmo update nao deve alterar estado nem gerar efeitos colaterais.
+
+products
+	-	Insert/update por uuid deve ser idempotente; reenvio nao duplica.
+
+product_categories
+	-	Insert/update por uuid deve ser idempotente; reenvio nao duplica.
+
+product_barcodes
+	-	Insert/update por uuid deve ser idempotente; reenvio nao duplica.
+
+locations
+	-	Insert/update por uuid deve ser idempotente; reenvio nao duplica.
+
+inventory_events
+	-	Insert/update por uuid deve ser idempotente; reenvio nao duplica.
+
+zones
+	-	Insert/update por uuid deve ser idempotente; reenvio nao duplica.
+
+inventory_event_targets
+	-	Insert/update por uuid deve ser idempotente; reenvio nao duplica (inclui resolucao por uuid de event/product).
+
+zone_user_progress
+	-	Insert/update por uuid deve ser idempotente; reenvio nao duplica progresso.
+
+inventory_items
+	-	Insert por uuid nao deve criar item duplicado; update repetido nao deve gerar eventos duplicados.

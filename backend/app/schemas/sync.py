@@ -30,6 +30,7 @@ class SyncPushRequest(BaseModel):
 class SyncPushResponse(BaseModel):
     accepted: List[str]
     failed: List[str]
+    rejected: Dict[str, str] = {}
 
 
 # ======================================================

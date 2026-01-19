@@ -58,8 +58,8 @@ async def sync_push(
     """
     Push de dados do cliente para o servidor.
     """
-    accepted, failed = PushOrchestrator().run(
+    accepted, failed, rejected = PushOrchestrator().run(
         items=data.items,
         user=user,
     )
-    return {"accepted": accepted, "failed": failed}
+    return {"accepted": accepted, "failed": failed, "rejected": rejected}

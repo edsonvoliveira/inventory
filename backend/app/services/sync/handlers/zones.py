@@ -61,9 +61,13 @@ class ZoneSyncHandler(BaseSyncHandler):
     def insert(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
 
+        event_id = payload.get("event_id", payload.get("event_server_id"))
+        if event_id is None:
+            raise RuntimeError("event_id ausente ou invalido")
+
         data = {
             "uuid": record_uuid,
-            "event_id": payload["event_id"],   # server_id do inventory_event
+            "event_id": int(event_id),   # server_id do inventory_event
             "name": payload["name"],
             "description": payload.get("description"),
             "count_status": payload.get("count_status", "not_started"),
@@ -94,7 +98,7 @@ class ZoneSyncHandler(BaseSyncHandler):
                 update_data[field] = payload[field]
 
         if not update_data:
-            raise RuntimeError("Nenhum campo válido para update de zone")
+            raise RuntimeError("Nenhum campo valido para update de zone")
 
         sb.table("zones").update(update_data).eq(
             "uuid", record_uuid

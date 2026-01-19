@@ -54,7 +54,11 @@ class AppRouter:
                 return
 
             if not entry:
-                self.page.go("/")
+                if not self.app_state.is_authenticated:
+                    self.page.go("/login")
+                    return
+                fallback = NAV_ITEMS[0]["rota"] if NAV_ITEMS else "/login"
+                self.page.go(fallback)
                 return
 
             # App main view

@@ -6,6 +6,8 @@ Responsibilities:
 - Wire UI events and interactions.
 """
 
+from typing import Any, Dict, Optional
+
 import flet as ft
 
 from desktop.core.company_service import CompanyService
@@ -25,17 +27,17 @@ from desktop.core.strings import (
     HINT_NIF,
 )
 from desktop.utils.dialogs import action_button, confirm_dialog, form_column, open_form_dialog
-from desktop.utils.list_row import build_list_row
 
 
 def render_company_view(page: ft.Page, on_refresh):
     coluna = ft.Column(expand=True, spacing=10)
+    list_view = ft.ListView(expand=True, spacing=8)
     service = CompanyService()
     result = service.list()
     empresas = result.data or []
 
     if not result.ok:
-        coluna.controls.append(ft.Text(result.message or "Erro ao carregar empresas."))
+        list_view.controls.append(ft.Text(result.message or "Erro ao carregar empresas."))
 
     def criar_empresa(e):
         dlg_name = ft.TextField(label=FIELD_NAME, hint_text=HINT_COMPANY_NAME, autofocus=True)
@@ -75,6 +77,86 @@ def render_company_view(page: ft.Page, on_refresh):
         ),
     )
 
+    header_bg = getattr(ft.Colors, "BLUE_GREY_50", ft.Colors.GREY_200)
+    line_color = getattr(ft.Colors, "BLUE_GREY_100", ft.Colors.GREY_300)
+
+    def _header_cell(label: str, *, width: Optional[int] = None, expand: Optional[int] = None):
+        return ft.Container(
+            content=ft.Text(label, weight=ft.FontWeight.BOLD, size=12),
+            width=width,
+            expand=expand,
+            padding=ft.padding.symmetric(vertical=8, horizontal=10),
+        )
+
+    def _row_cell(value: str, *, width: Optional[int] = None, expand: Optional[int] = None):
+        return ft.Container(
+            content=ft.Text(value, size=12),
+            width=width,
+            expand=expand,
+            padding=ft.padding.symmetric(vertical=8, horizontal=10),
+        )
+
+    def _build_grid_header():
+        return ft.Container(
+            content=ft.Row(
+                [
+                    _header_cell("ID", width=60),
+                    _header_cell("Nome", expand=2),
+                    _header_cell("NIF", width=140),
+                    _header_cell("Acoes", width=120),
+                ],
+                spacing=0,
+            ),
+            bgcolor=header_bg,
+            border=ft.border.only(
+                top=ft.BorderSide(2, line_color),
+                bottom=ft.BorderSide(2, line_color),
+            ),
+        )
+
+    def _build_grid_row(emp: Dict[str, Any]):
+        theme = page.theme
+        primary_color = (theme.color_scheme.primary if theme and theme.color_scheme else None) or ft.Colors.BLUE
+        error_color = (theme.color_scheme.error if theme and theme.color_scheme else None) or ft.Colors.RED
+        row = ft.Row(
+            [
+                _row_cell(str(emp.get("id") or "-"), width=60),
+                _row_cell(emp.get("name") or "-", expand=2),
+                _row_cell(emp.get("nif") or "-", width=140),
+                ft.Container(
+                    content=ft.Row(
+                        [
+                            action_button(
+                                ICON_EDIT,
+                                primary_color,
+                                lambda e, emp=emp: abrir_edicao_empresa(emp),
+                            ),
+                            action_button(
+                                ICON_DELETE,
+                                error_color,
+                                lambda e, id=emp.get("id"): confirm_dialog(
+                                    page,
+                                    DIALOG_CONFIRM_DELETE,
+                                    lambda: [service.delete(id), on_refresh(None)],
+                                ),
+                            ),
+                        ],
+                        spacing=4,
+                        alignment=ft.MainAxisAlignment.END,
+                    ),
+                    width=120,
+                    padding=ft.padding.symmetric(vertical=4, horizontal=0),
+                    alignment=ft.alignment.center_right,
+                    clip_behavior=ft.ClipBehavior.HARD_EDGE,
+                ),
+            ],
+            spacing=0,
+        )
+        return ft.Container(
+            content=row,
+            border=ft.border.only(bottom=ft.BorderSide(1, line_color)),
+        )
+
     for emp in empresas:
         def abrir_edicao_empresa(emp=emp):
             dlg_name = ft.TextField(label=FIELD_NAME, value=emp["name"])
@@ -103,26 +185,8 @@ def render_company_view(page: ft.Page, on_refresh):
                 height=250,
             )
 
-        coluna.controls.append(
-            build_list_row(
-                f"{emp['id']} - {emp['name']} - {emp['nif'] or ''}",
-                [
-                    action_button(
-                        ICON_EDIT,
-                        page.theme.color_scheme.primary,
-                        lambda e, emp=emp: abrir_edicao_empresa(emp),
-                    ),
-                    action_button(
-                        ICON_DELETE,
-                        page.theme.color_scheme.error,
-                        lambda e, id=emp["id"]: confirm_dialog(
-                            page,
-                            DIALOG_CONFIRM_DELETE,
-                            lambda: [service.delete(id), on_refresh(None)],
-                        ),
-                    ),
-                ],
-            )
-        )
+        list_view.controls.append(_build_grid_row(emp))
 
+    coluna.controls.append(_build_grid_header())
+    coluna.controls.append(list_view)
     return coluna

@@ -1,0 +1,555 @@
+Analise de Contrato de Sync (teorico vs implementado)
+
+0) Contrato global (vale para todas as entidades sincronizadas)
+
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: nao definido por campo; regra global: uuid gerado no client e idempotencia por uuid.
+- Campos mutaveis no UPDATE: nao definido por campo; regra global: update permitido respeitando conflito (LWW por updated_at).
+- Soft delete: nao hard delete; usar deleted_at e/ou is_active; pull deve incluir deletados.
+- Origem permitida: company_id sempre filtrado no server (RLS); mobile nao escreve entidades administrativas.
+- Pull (filtros/since): since em ISO 8601 UTC; retorno de updated_at > since (ou >=); incluir deletados.
+- O que isso indica para o contrato: cada entidade deve ter lista explicita de campos e regra de conflito por updated_at.
+- Sugestao de formato de contrato (exemplo textual):
+  "Regra global: uuid do client; push idempotente por uuid; pull incremental por updated_at (UTC) incluindo deletados; conflito LWW com server como fonte".
+
+HANDLERS
+- Nao ha handler unico global; as regras estao dispersas nos handlers de cada entidade.
+- Campos obrigatorios no INSERT: definido por handler (varia por entidade).
+- Campos mutaveis no UPDATE: definido por handler (varia por entidade).
+- Soft delete: definido por handler (is_active, deleted_at, is_blocked, ou nao suportado).
+- Origem permitida: em geral company_id e user_id sao server-side quando o handler fixa no payload.
+- Pull (filtros/since): cada handler implementa filtro e since; gte(updated_at) em UTC; alguns fazem join para filtrar por company_id.
+- O que isso indica para o contrato: o contrato global nao esta centralizado nem validado; risco de inconsistencias entre entidades.
+- Sugestao de formato de contrato (exemplo textual): "Cada handler deve declarar allowlist de update e padrao de soft delete; nao aceitar company_id do client".
+
+REPOSITORIES (app_core)
+- Nao ha repositorio global; cada entidade tem um RepoPort com upsert_many.
+- Campos obrigatorios no INSERT: n/a (repositorios apenas aplicam upsert).
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: n/a.
+- Pull (filtros/since): n/a no app_core; aplica payload recebido do backend.
+- O que isso indica para o contrato: o enforcement do contrato nao ocorre no app_core; fica no backend e nas validacoes de UI.
+- Sugestao de formato de contrato (exemplo textual): "Repositorios locais aceitam payload do server e fazem upsert; validacao deve ocorrer antes".
+
+ANALISE
+- Regra global de idempotencia nao aparece nos handlers (nao ha UPSERT por uuid no backend).
+- Conflito LWW por updated_at nao esta implementado nos handlers.
+- Soft delete varia entre entidades (is_active vs deleted_at vs is_blocked), sem padrao consistente no codigo.
+
+1) Entidades locais (nao sincronizam)
+
+Entidade: app_meta (local only)
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: n/a (local, sem sync).
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: local (desktop/mobile).
+- Pull (filtros/since): n/a.
+- O que isso indica para o contrato: entidade usada para controle local (bootstrap_done, last_pull_at, company_server_id).
+- Sugestao de formato de contrato (exemplo textual): "app_meta: local, sem sync; chaves definidas pelo app".
+
+HANDLERS
+- Nao existe handler de sync no backend para app_meta.
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: n/a.
+- Pull (filtros/since): n/a.
+- O que isso indica para o contrato: app_meta e exclusivamente local.
+- Sugestao de formato de contrato (exemplo textual): "Sem handler; repositorio local controla chaves".
+
+REPOSITORIES (app_core)
+- Repo port: app_core/ports/repositories/app_meta_repo_port.py (get_meta, set_meta).
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: local.
+- Pull (filtros/since): n/a.
+- O que isso indica para o contrato: app_core apenas le/grava metadados locais.
+- Sugestao de formato de contrato (exemplo textual): "app_meta: key/value local".
+
+ANALISE
+- Em linha com o teorico: nao sincroniza e so existe localmente.
+
+Entidade: outbox_local (local only)
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: n/a (local, sem sync).
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: local.
+- Pull (filtros/since): n/a.
+- O que isso indica para o contrato: outbox dirige o push; nao sincroniza.
+- Sugestao de formato de contrato (exemplo textual): "outbox: fila local de operacoes".
+
+HANDLERS
+- Nao existe handler de sync no backend para outbox_local.
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: n/a.
+- Pull (filtros/since): n/a.
+- O que isso indica para o contrato: outbox e exclusivo do client.
+- Sugestao de formato de contrato (exemplo textual): "Sem handler; enviado via SyncPushService".
+
+REPOSITORIES (app_core)
+- Repo port: app_core/ports/outbox_port.py (enqueue, list_pending, mark_done, mark_failed).
+- Campos obrigatorios no INSERT: table_name, operation, record_uuid, payload.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: local.
+- Pull (filtros/since): n/a.
+- O que isso indica para o contrato: outbox armazena o payload bruto do client.
+- Sugestao de formato de contrato (exemplo textual): "outbox: tabela com operacao e payload".
+
+ANALISE
+- Em linha com o teorico: local-only e critico para push.
+
+Entidade: sqlite_sequence (local)
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: SQLite.
+- Pull (filtros/since): n/a.
+- O que isso indica para o contrato: nao sincroniza.
+- Sugestao de formato de contrato (exemplo textual): "sqlite_sequence: interno do SQLite".
+
+HANDLERS
+- Nao existe handler.
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: n/a.
+- Pull (filtros/since): n/a.
+- O que isso indica para o contrato: sem sync.
+- Sugestao de formato de contrato (exemplo textual): "Sem handler".
+
+REPOSITORIES (app_core)
+- Repo port: nenhum.
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: n/a.
+- Pull (filtros/since): n/a.
+- O que isso indica para o contrato: fora do app_core.
+- Sugestao de formato de contrato (exemplo textual): "Nao mapeado".
+
+ANALISE
+- Em linha com o teorico: local-only.
+
+B) Master Data (administrativo; Desktop gerencia; Mobile le)
+
+Entidade: companies
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: nao definido; push opcional e geralmente nao via app.
+- Campos mutaveis no UPDATE: nao definido; apenas admin.
+- Soft delete: nao definido.
+- Origem permitida: server e dono da verdade; desktop R e U limitado; mobile R.
+- Pull (filtros/since): pull por id == company_id; since por updated_at.
+- O que isso indica para o contrato: push geralmente nao suportado; pull filtrado por company_id.
+- Sugestao de formato de contrato (exemplo textual): "companies: pull por id; push update limitado (name/address/country_code) via desktop".
+
+HANDLERS
+- Handler: backend/app/services/sync/handlers/companies.py
+- Campos obrigatorios no INSERT: n/a (push nao suportado).
+- Campos mutaveis no UPDATE: n/a (push nao suportado).
+- Soft delete: n/a (push nao suportado).
+- Origem permitida: server-only.
+- Pull (filtros/since): select(*) filtrando id == company_id; gte(updated_at) em UTC; adiciona server_id se nao existir.
+- O que isso indica para o contrato: handler bloqueia insert/update/delete.
+- Sugestao de formato de contrato (exemplo textual): "companies: pull; push update limitado via desktop".
+
+REPOSITORIES (app_core)
+- Repo port: app_core/ports/repositories/companies_repo_port.py (upsert_many).
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: server -> client (pull).
+- Pull (filtros/since): n/a no app_core; aplica payload de pull.
+- O que isso indica para o contrato: repositorio apenas aplica dados do server.
+- Sugestao de formato de contrato (exemplo textual): "companies local via upsert_many".
+
+ANALISE
+- Alinhado ao teorico: push limitado (update via desktop), pull filtrado por id.
+- Global: handler adiciona server_id quando nao existe; isso nao esta no contrato teorico.
+
+Entidade: users
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: nao definido; insert desativado; update limitado via desktop.
+- Campos mutaveis no UPDATE: permissoes/estado.
+- Soft delete: desativar (is_active).
+- Origem permitida: server e dono da verdade; desktop R e U limitado; mobile R.
+- Pull (filtros/since): users vinculados a empresa; since por updated_at.
+- O que isso indica para o contrato: push deve permitir update limitado via desktop (campos explicitos); insert/delete desativado.
+- Sugestao de formato de contrato (exemplo textual): "users: pull; push update limitado (name/role/username/is_active) via desktop".
+
+HANDLERS
+- Handler: backend/app/services/sync/handlers/users.py
+- Campos obrigatorios no INSERT: email, name; company_id e uuid server-side; role default "auditor".
+- Campos mutaveis no UPDATE: email, username, name, role, is_active, supabase_auth_id.
+- Soft delete: is_active = False.
+- Origem permitida: company_id server-side (user.company_server_id).
+- Pull (filtros/since): select(*) filtrando company_id; gte(updated_at) em UTC.
+- O que isso indica para o contrato: somente campos listados podem atualizar; delete e logico.
+- Sugestao de formato de contrato (exemplo textual): "users: update limitado (name/role/username/is_active); delete/insert desativados".
+
+REPOSITORIES (app_core)
+- Repo port: app_core/ports/repositories/users_repo_port.py (upsert_many).
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: server -> client.
+- Pull (filtros/since): n/a no app_core; aplica payload do backend.
+- O que isso indica para o contrato: repositorio recebe dados do server via pull.
+- Sugestao de formato de contrato (exemplo textual): "users local via upsert_many".
+
+ANALISE
+- Teorico define server como dono com update limitado; handler permite push amplo (sem checar papel/role).
+- Contrato teorico nao define campos; handler define allowlist.
+
+Entidade: products
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: nao definido.
+- Campos mutaveis no UPDATE: nao definido.
+- Soft delete: sim (soft delete).
+- Origem permitida: server; desktop escreve; mobile read-only.
+- Pull (filtros/since): produtos por company_id; since por updated_at.
+- O que isso indica para o contrato: desktop CRUD; mobile apenas leitura.
+- Sugestao de formato de contrato (exemplo textual): "products: desktop CRUD, mobile read-only".
+
+HANDLERS
+- Handler: backend/app/services/sync/handlers/products.py
+- Campos obrigatorios no INSERT: sku, name, uom_base, uom_inventory; company_id e uuid server-side; category_id opcional.
+- Campos mutaveis no UPDATE: sku, name, description, uom_base, uom_inventory, conversion_factor, system_qty, cost_price, is_sensitive, serial_number_enabled, is_active; category_id se informado.
+- Soft delete: is_active = False.
+- Origem permitida: company_id server-side; category_id vem do client como server_id.
+- Pull (filtros/since): select(*) filtrando company_id; gte(updated_at) em UTC.
+- O que isso indica para o contrato: push define allowlist, delete logico.
+- Sugestao de formato de contrato (exemplo textual): "products: insert com sku/name/uom, update allowlist, delete -> is_active".
+
+REPOSITORIES (app_core)
+- Repo port: app_core/ports/repositories/products_repo_port.py (upsert_many).
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: server -> client.
+- Pull (filtros/since): n/a no app_core; aplica payload do backend.
+- O que isso indica para o contrato: repositorio so aplica payload do pull.
+- Sugestao de formato de contrato (exemplo textual): "products local via upsert_many".
+
+ANALISE
+- Alinhado ao teorico (desktop escreve, mobile read-only) mas handler nao valida origem do client.
+- Contrato teorico nao define campos; handler define.
+
+Entidade: product_categories
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: nao definido.
+- Campos mutaveis no UPDATE: nao definido.
+- Soft delete: sim (soft delete).
+- Origem permitida: server; desktop escreve; mobile read-only.
+- Pull (filtros/since): por company_id; since por updated_at.
+- O que isso indica para o contrato: desktop CRUD.
+- Sugestao de formato de contrato (exemplo textual): "product_categories: desktop CRUD, mobile read-only".
+
+HANDLERS
+- Handler: backend/app/services/sync/handlers/product_categories.py
+- Campos obrigatorios no INSERT: code, name; company_id e uuid server-side.
+- Campos mutaveis no UPDATE: code, name, description, is_active.
+- Soft delete: is_active = False.
+- Origem permitida: company_id server-side.
+- Pull (filtros/since): select(*) filtrando company_id; gte(updated_at) em UTC.
+- O que isso indica para o contrato: allowlist de update, delete logico.
+- Sugestao de formato de contrato (exemplo textual): "categories: insert(code,name), update allowlist, delete -> is_active".
+
+REPOSITORIES (app_core)
+- Repo port: app_core/ports/repositories/product_categories_repo_port.py (upsert_many).
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: server -> client.
+- Pull (filtros/since): n/a no app_core; aplica payload do backend.
+- O que isso indica para o contrato: repositorio so aplica pull.
+- Sugestao de formato de contrato (exemplo textual): "product_categories local via upsert_many".
+
+ANALISE
+- Alinhado ao teorico; contrato teorico nao define campos, handler define.
+
+Entidade: product_barcodes
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: nao definido.
+- Campos mutaveis no UPDATE: nao definido.
+- Soft delete: sim (soft delete).
+- Origem permitida: server; desktop escreve; mobile read-only.
+- Pull (filtros/since): por company_id (via produto); since por updated_at.
+- O que isso indica para o contrato: desktop CRUD, mobile leitura.
+- Sugestao de formato de contrato (exemplo textual): "product_barcodes: desktop CRUD, mobile read-only".
+
+HANDLERS
+- Handler: backend/app/services/sync/handlers/product_barcodes.py
+- Campos obrigatorios no INSERT: product_id (ou product_server_id), barcode; company_id e uuid server-side.
+- Campos mutaveis no UPDATE: barcode, description, is_active.
+- Soft delete: is_active = False.
+- Origem permitida: company_id server-side; product_id vem do client como server_id.
+- Pull (filtros/since): select(*) filtrando company_id; gte(updated_at) em UTC.
+- O que isso indica para o contrato: allowlist de update e delete logico.
+- Sugestao de formato de contrato (exemplo textual): "product_barcodes: insert(product_id,barcode), update allowlist".
+
+REPOSITORIES (app_core)
+- Repo port: app_core/ports/repositories/product_barcodes_repo_port.py (upsert_many).
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: server -> client.
+- Pull (filtros/since): n/a no app_core; aplica payload do backend.
+- O que isso indica para o contrato: repositorio so aplica pull.
+- Sugestao de formato de contrato (exemplo textual): "product_barcodes local via upsert_many".
+
+ANALISE
+- Alinhado ao teorico; handler exige product_id e usa company_id server-side.
+
+Entidade: locations
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: nao definido.
+- Campos mutaveis no UPDATE: nao definido.
+- Soft delete: sim (soft delete).
+- Origem permitida: server; desktop escreve; mobile read-only.
+- Pull (filtros/since): por company_id; since por updated_at.
+- O que isso indica para o contrato: desktop CRUD.
+- Sugestao de formato de contrato (exemplo textual): "locations: desktop CRUD, mobile read-only".
+
+HANDLERS
+- Handler: backend/app/services/sync/handlers/locations.py
+- Campos obrigatorios no INSERT: name; company_id e uuid server-side; code default name.
+- Campos mutaveis no UPDATE: code, name, address, is_active.
+- Soft delete: is_active = False.
+- Origem permitida: company_id server-side.
+- Pull (filtros/since): select(*) filtrando company_id; gte(updated_at) em UTC.
+- O que isso indica para o contrato: allowlist de update e delete logico.
+- Sugestao de formato de contrato (exemplo textual): "locations: insert(name), update allowlist, delete -> is_active".
+
+REPOSITORIES (app_core)
+- Repo port: app_core/ports/repositories/locations_repo_port.py (upsert_many).
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: server -> client.
+- Pull (filtros/since): n/a no app_core; aplica payload do backend.
+- O que isso indica para o contrato: repositorio so aplica pull.
+- Sugestao de formato de contrato (exemplo textual): "locations local via upsert_many".
+
+ANALISE
+- Alinhado ao teorico; contrato teorico nao define campos, handler define.
+
+C) Operacao de inventario
+
+Entidade: inventory_events
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: nao definido.
+- Campos mutaveis no UPDATE: nao definido.
+- Soft delete: preferir status (cancelled/closed), soft delete raramente.
+- Origem permitida: server; desktop cria/atualiza; mobile read-only.
+- Pull (filtros/since): inventory_events.company_id == company_id; since por updated_at.
+- O que isso indica para o contrato: desktop escreve eventos; mobile nao cria.
+- Sugestao de formato de contrato (exemplo textual): "inventory_events: desktop write, mobile read-only".
+
+HANDLERS
+- Handler: backend/app/services/sync/handlers/inventory_events.py
+- Campos obrigatorios no INSERT: location_id (ou location_server_id), title; company_id e uuid server-side; status default planned.
+- Campos mutaveis no UPDATE: title, event_type, status, required_counts, required_audits, tolerance_percent, tolerance_absolute, is_active.
+- Soft delete: is_active = False.
+- Origem permitida: company_id server-side; location_id vem do client como server_id.
+- Pull (filtros/since): select(*) filtrando company_id; gte(updated_at) em UTC.
+- O que isso indica para o contrato: allowlist de update e delete logico.
+- Sugestao de formato de contrato (exemplo textual): "inventory_events: insert(location_id,title), update allowlist, delete -> is_active".
+
+REPOSITORIES (app_core)
+- Repo port: app_core/ports/repositories/inventory_events_repo_port.py (upsert_many).
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: server -> client.
+- Pull (filtros/since): n/a no app_core; aplica payload do backend.
+- O que isso indica para o contrato: repositorio so aplica pull.
+- Sugestao de formato de contrato (exemplo textual): "inventory_events local via upsert_many".
+
+ANALISE
+- Teorico sugere evitar delete; handler implementa soft delete com is_active.
+- Sem validacao de origem (desktop vs mobile) no handler.
+
+Entidade: zones
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: nao definido.
+- Campos mutaveis no UPDATE: nao definido.
+- Soft delete: sim (soft delete).
+- Origem permitida: server; desktop CRUD; mobile read-only.
+- Pull (filtros/since): zones -> inventory_event_id -> company_id; since por updated_at.
+- O que isso indica para o contrato: desktop escreve.
+- Sugestao de formato de contrato (exemplo textual): "zones: desktop CRUD, mobile read-only".
+
+HANDLERS
+- Handler: backend/app/services/sync/handlers/zones.py
+- Campos obrigatorios no INSERT: event_id (ou event_server_id), name; uuid server-side.
+- Campos mutaveis no UPDATE: name, description, count_status, lock_status, is_active.
+- Soft delete: is_active = False.
+- Origem permitida: event_id vem do client como server_id.
+- Pull (filtros/since): select com join inventory_events; filtra company_id; gte(updated_at) em UTC.
+- O que isso indica para o contrato: allowlist de update e delete logico.
+- Sugestao de formato de contrato (exemplo textual): "zones: insert(event_id,name), update allowlist, delete -> is_active".
+
+REPOSITORIES (app_core)
+- Repo port: app_core/ports/repositories/zones_repo_port.py (upsert_many).
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: server -> client.
+- Pull (filtros/since): n/a no app_core; aplica payload do backend.
+- O que isso indica para o contrato: repositorio so aplica pull.
+- Sugestao de formato de contrato (exemplo textual): "zones local via upsert_many".
+
+ANALISE
+- Alinhado ao teorico; handler usa event_id do client sem validacao extra.
+
+Entidade: inventory_event_targets
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: nao definido.
+- Campos mutaveis no UPDATE: nao definido.
+- Soft delete: sim (soft delete).
+- Origem permitida: server; desktop define targets; mobile read-only.
+- Pull (filtros/since): por company_id via evento; since por updated_at.
+- O que isso indica para o contrato: desktop escreve.
+- Sugestao de formato de contrato (exemplo textual): "inventory_event_targets: desktop CRUD, mobile read-only".
+
+HANDLERS
+- Handler: backend/app/services/sync/handlers/inventory_event_targets.py
+- Campos obrigatorios no INSERT: event_id (ou event_uuid), product_id (ou product_uuid); uuid e company_id server-side.
+- Campos mutaveis no UPDATE: expected_qty, is_active.
+- Soft delete: is_active = False.
+- Origem permitida: company_id server-side; event_id/product_id resolvidos via server_id ou uuid.
+- Pull (filtros/since): select(*) filtrando company_id; gte(updated_at) em UTC.
+- O que isso indica para o contrato: allowlist de update e delete logico; permite lookup por uuid.
+- Sugestao de formato de contrato (exemplo textual): "targets: insert(event_id,product_id), update allowlist".
+
+REPOSITORIES (app_core)
+- Repo port: app_core/ports/repositories/inventory_event_targets_repo_port.py (upsert_many).
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: server -> client.
+- Pull (filtros/since): n/a no app_core; aplica payload do backend.
+- O que isso indica para o contrato: repositorio so aplica pull.
+- Sugestao de formato de contrato (exemplo textual): "inventory_event_targets local via upsert_many".
+
+ANALISE
+- Alinhado ao teorico; handler permite lookup por uuid se server_id nao enviado.
+
+Entidade: zone_user_progress
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: started_at, count_type, device_id (e referencias de zona/usuario).
+- Campos mutaveis no UPDATE: items_counted, qty_total, is_finished, finished_at.
+- Soft delete: normalmente nao; se precisar usar deleted_at.
+- Origem permitida: mobile CRU; desktop R; server consolida.
+- Pull (filtros/since): por company_id via zone -> event; since por updated_at.
+- O que isso indica para o contrato: registros por zona/usuario/dispositivo com controle de concorrencia.
+- Sugestao de formato de contrato (exemplo textual): "zone_user_progress: mobile CRU, desktop R; insert com started_at/count_type/device_id".
+
+HANDLERS
+- Handler: backend/app/services/sync/handlers/zone_user_progress.py
+- Campos obrigatorios no INSERT: nao validado; handler copia payload e seta uuid; converte zone_server_id/user_server_id se presente.
+- Campos mutaveis no UPDATE: qualquer campo do payload (nao ha allowlist).
+- Soft delete: nao implementado (sem metodo delete).
+- Origem permitida: user_id e zone_id podem vir do client; nao ha imposicao de server-side.
+- Pull (filtros/since): select com join zones -> inventory_events; filtra company_id; gte(updated_at) em UTC.
+- O que isso indica para o contrato: push aceita payload livre; risco de campos indevidos.
+- Sugestao de formato de contrato (exemplo textual): "zone_user_progress: definir allowlist e campos obrigatorios; delete com deleted_at se necessario".
+
+REPOSITORIES (app_core)
+- Repo port: app_core/ports/repositories/zone_user_progress_repo_port.py (upsert_many).
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: server -> client.
+- Pull (filtros/since): repo existe mas nao esta ligado em app_core/application/apply_pull_payload.py.
+- O que isso indica para o contrato: repositorio existe, mas pull nao aplica payload.
+- Sugestao de formato de contrato (exemplo textual): "zone_user_progress local via upsert_many".
+
+ANALISE
+- Discrepancia: teorico define campos obrigatorios e update especifico; handler nao valida nem limita campos.
+- Discrepancia: repo port existe, mas app_core/application/apply_pull_payload.py nao inclui zone_user_progress.
+
+Entidade: inventory_items
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: zone_id, product_id, qty_counted, device_timestamp, source, user_id.
+- Campos mutaveis no UPDATE: ajuste de qty (se permitir).
+- Soft delete: deleted_at.
+- Origem permitida: mobile RU e desktop CRD; server consolida.
+- Pull (filtros/since): por company_id via zone -> event; since por updated_at.
+- O que isso indica para o contrato: mobile RU e desktop CRD; server consolida; idempotencia por uuid.
+- Sugestao de formato de contrato (exemplo textual): "inventory_items: mobile RU, desktop CRD; insert com zone_id/product_id/qty_counted/device_timestamp/user_id; delete -> deleted_at".
+
+HANDLERS
+- Handler: backend/app/services/sync/handlers/inventory_items.py
+- Campos obrigatorios no INSERT: zone_id (ou zone_server_id), qty_counted, device_timestamp; user_id default user.db_user_id; product_id opcional no handler (nao valida se ausente).
+- Campos mutaveis no UPDATE: qty_counted, batch_number, expiry_date, scanned_code, device_timestamp, latitude, longitude, source.
+- Soft delete: define deleted_at e updated_at.
+- Origem permitida: user_id pode vir do payload ou do user; zone_id/product_id do payload; company_id nao usado no insert.
+- Pull (filtros/since): resolve zone_ids via join com inventory_events; filtra company_id; gte(updated_at) em UTC.
+- O que isso indica para o contrato: handler cria inventory_item_events em insert/update; usa id interno para update; sem allowlist para product_id/zone_id no update.
+- Sugestao de formato de contrato (exemplo textual): "inventory_items: insert exige zone_id/product_id/qty_counted/device_timestamp; update allowlist; delete -> deleted_at".
+
+REPOSITORIES (app_core)
+- Repo port: app_core/ports/repositories/inventory_items_repo_port.py (upsert_many).
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: server -> client.
+- Pull (filtros/since): repo existe mas nao esta ligado em app_core/application/apply_pull_payload.py.
+- O que isso indica para o contrato: repositorio existe, mas pull nao aplica payload.
+- Sugestao de formato de contrato (exemplo textual): "inventory_items local via upsert_many".
+
+ANALISE
+- Discrepancia: teorico exige product_id; handler nao valida se product_id faltou.
+- Discrepancia: repo port existe, mas app_core/application/apply_pull_payload.py nao inclui inventory_items.
+
+D) Dispositivos
+
+Entidade: devices
+TEORICO (sync_contract.txt)
+- Campos obrigatorios no INSERT: nao definido; insert no primeiro uso do device.
+- Campos mutaveis no UPDATE: versao app, status.
+- Soft delete: nao; usar is_blocked.
+- Origem permitida: desktop/mobile escrevem seu proprio device.
+- Pull (filtros/since): por company e/ou user; since por updated_at.
+- O que isso indica para o contrato: device registra-se no server, pode ser bloqueado.
+- Sugestao de formato de contrato (exemplo textual): "devices: insert no primeiro uso; update status; delete -> is_blocked".
+
+HANDLERS
+- Handler: backend/app/services/sync/handlers/devices.py
+- Campos obrigatorios no INSERT: device_uuid; uuid server-side; user_id server-side (user.db_user_id).
+- Campos mutaveis no UPDATE: os, app_version, last_sync_at, is_blocked, metadata.
+- Soft delete: is_blocked = True.
+- Origem permitida: user_id sempre server-side; is_blocked pode vir do client.
+- Pull (filtros/since): select com join users; filtra users.company_id; gte(updated_at) em UTC.
+- O que isso indica para o contrato: update allowlist; delete logico via bloqueio.
+- Sugestao de formato de contrato (exemplo textual): "devices: insert(device_uuid), update allowlist, delete -> is_blocked".
+
+REPOSITORIES (app_core)
+- Repo port: app_core/ports/repositories/devices_repo_port.py (upsert_many).
+- Campos obrigatorios no INSERT: n/a.
+- Campos mutaveis no UPDATE: n/a.
+- Soft delete: n/a.
+- Origem permitida: server -> client.
+- Pull (filtros/since): n/a no app_core; aplica payload do backend.
+- O que isso indica para o contrato: repositorio so aplica pull.
+- Sugestao de formato de contrato (exemplo textual): "devices local via upsert_many".
+
+ANALISE
+- Alinhado ao teorico; handler aceita is_blocked do client (potencial risco se mobile nao deveria bloquear).
+
+IDEMPOTENCIA POR ENTIDADE (resumo)
+- Regra geral: UUID e a chave idempotente em todo PUSH; insert/update devem ser UPSERT por uuid.
+- companies/users: update limitado; reenvio nao deve alterar estado nem gerar efeitos colaterais.
+- master data (products, categories, barcodes, locations): reenvio por uuid nao duplica.
+- inventory_events/zones/targets: reenvio por uuid nao duplica.
+- zone_user_progress: reenvio nao duplica progresso.
+- inventory_items: reenvio nao cria item duplicado; update repetido nao gera eventos duplicados.

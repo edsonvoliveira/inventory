@@ -41,6 +41,13 @@ class AuthService:
                 message="Nao foi possivel conectar ao servidor.",
                 error_code="AUTH_ERROR",
             )
-        except Exception:
+        except Exception as exc:
+            message = str(exc).lower()
+            if "database is locked" in message:
+                return Result(
+                    ok=False,
+                    message="Banco de dados em uso. Feche o DB Browser e tente novamente.",
+                    error_code="AUTH_DB_LOCKED",
+                )
             return Result(ok=False, message="Falha ao autenticar. Tente novamente.", error_code="AUTH_ERROR")
         return Result(ok=True)

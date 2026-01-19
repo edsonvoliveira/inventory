@@ -6,13 +6,15 @@ Responsibilities:
 - Wire UI events and interactions.
 """
 
+from typing import Any, Dict, Optional
+
 import flet as ft
 
+from desktop.core.location_service import LocationService
 from desktop.core.ui_constants import ICON_ADD, ICON_DELETE, ICON_EDIT
 from desktop.core.strings import (
     BTN_CREATE,
     BTN_SAVE,
-    FIELD_COMPANY,
     FIELD_NAME,
     HINT_LOCATION_NAME,
     LOCATION_ADD,
@@ -20,29 +22,37 @@ from desktop.core.strings import (
     LOCATION_EDIT_TITLE,
     LOCATION_TITLE,
 )
-from desktop.data.repository import company_get_all, location_create, location_delete, location_get_all, location_update
 from desktop.utils.dialogs import action_button, form_column, open_form_dialog
-from desktop.utils.validation import is_required
-from desktop.utils.list_row import build_list_row
 
 
 def render_location_view(page: ft.Page, on_refresh):
     coluna = ft.Column(expand=True, spacing=10)
-    locais = location_get_all()
-    companies = company_get_all()
+    list_view = ft.ListView(expand=True, spacing=8)
+    service = LocationService()
+    result = service.list()
+    locais = result.data or []
+
+    if not result.ok:
+        list_view.controls.append(ft.Text(result.message or "Erro ao carregar locais."))
 
     def criar_local(e):
         dlg_name = ft.TextField(label=FIELD_NAME, hint_text=HINT_LOCATION_NAME, autofocus=True)
-        dlg_company = ft.Dropdown(
-            label=FIELD_COMPANY,
-            options=[ft.dropdown.Option(str(c["id"]), c["name"]) for c in companies],
-        )
+        theme = page.theme
+        error_color = theme.color_scheme.error if theme and theme.color_scheme else ft.Colors.RED
+        dlg_required_msg = ft.Text("", color=error_color)
 
         def salvar_local(e, dlg):
             nome = dlg_name.value or ""
-            if not is_required(nome) or not dlg_company.value:
+            result = service.create(nome)
+            if not result.ok:
+                if result.error_code == "VALIDATION_ERROR":
+                    dlg_required_msg.value = "Informacoes obrigatorias"
+                    dlg_name.border_color = error_color
+                    dlg_name.focused_border_color = error_color
+                    dlg_name.update()
+                    dlg_required_msg.update()
                 return
-            location_create(nome.strip(), int(dlg_company.value))
+            dlg_required_msg.value = ""
             dlg.open = False
             page.update()
             on_refresh(None)
@@ -50,7 +60,7 @@ def render_location_view(page: ft.Page, on_refresh):
         open_form_dialog(
             page,
             LOCATION_ADD_TITLE,
-            form_column([dlg_name, dlg_company]),
+            form_column([dlg_name, dlg_required_msg]),
             salvar_local,
             BTN_CREATE,
             width=500,
@@ -67,20 +77,99 @@ def render_location_view(page: ft.Page, on_refresh):
         )
     )
 
+    header_bg = getattr(ft.Colors, "BLUE_GREY_50", ft.Colors.GREY_200)
+    line_color = getattr(ft.Colors, "BLUE_GREY_100", ft.Colors.GREY_300)
+
+    def _header_cell(label: str, *, width: Optional[int] = None, expand: Optional[int] = None):
+        return ft.Container(
+            content=ft.Text(label, weight=ft.FontWeight.BOLD, size=12),
+            width=width,
+            expand=expand,
+            padding=ft.padding.symmetric(vertical=8, horizontal=10),
+        )
+
+    def _row_cell(value: str, *, width: Optional[int] = None, expand: Optional[int] = None):
+        return ft.Container(
+            content=ft.Text(value, size=12),
+            width=width,
+            expand=expand,
+            padding=ft.padding.symmetric(vertical=8, horizontal=10),
+        )
+
+    def _build_grid_header():
+        return ft.Container(
+            content=ft.Row(
+                [
+                    _header_cell("ID", width=60),
+                    _header_cell("Nome", expand=3),
+                    _header_cell("Acoes", width=120),
+                ],
+                spacing=0,
+            ),
+            bgcolor=header_bg,
+            border=ft.border.only(
+                top=ft.BorderSide(2, line_color),
+                bottom=ft.BorderSide(2, line_color),
+            ),
+        )
+
+    def _build_grid_row(local: Dict[str, Any]):
+        theme = page.theme
+        primary_color = (theme.color_scheme.primary if theme and theme.color_scheme else None) or ft.Colors.BLUE
+        error_color = (theme.color_scheme.error if theme and theme.color_scheme else None) or ft.Colors.RED
+        row = ft.Row(
+            [
+                _row_cell(str(local.get("id") or "-"), width=60),
+                _row_cell(local.get("name") or "-", expand=3),
+                ft.Container(
+                    content=ft.Row(
+                        [
+                            action_button(
+                                ICON_EDIT,
+                                primary_color,
+                                lambda e, local=local: abrir_edicao_location(local),
+                            ),
+                            action_button(
+                                ICON_DELETE,
+                                error_color,
+                                lambda e, id=local.get("id"): [service.delete(id), on_refresh(None)],
+                            ),
+                        ],
+                        spacing=4,
+                        alignment=ft.MainAxisAlignment.END,
+                    ),
+                    width=120,
+                    padding=ft.padding.symmetric(vertical=4, horizontal=0),
+                    alignment=ft.alignment.center_right,
+                    clip_behavior=ft.ClipBehavior.HARD_EDGE,
+                ),
+            ],
+            spacing=0,
+        )
+        return ft.Container(
+            content=row,
+            border=ft.border.only(bottom=ft.BorderSide(1, line_color)),
+        )
+
     for local in locais:
         def abrir_edicao_location(local=local):
             dlg_name = ft.TextField(label=FIELD_NAME, value=local["name"])
-            dlg_company = ft.Dropdown(
-                label=FIELD_COMPANY,
-                options=[ft.dropdown.Option(str(c["id"]), c["name"]) for c in companies],
-                value=str(local["company_id"]),
-            )
+            theme = page.theme
+            error_color = theme.color_scheme.error if theme and theme.color_scheme else ft.Colors.RED
+            dlg_required_msg = ft.Text("", color=error_color)
             def salvar_edicao(e, dlg):
-                location_update(
+                result = service.update(
                     local["id"],
                     (dlg_name.value or "").strip(),
-                    int(dlg_company.value or 0),
                 )
+                if not result.ok:
+                    if result.error_code == "VALIDATION_ERROR":
+                        dlg_required_msg.value = "Informacoes obrigatorias"
+                        dlg_name.border_color = error_color
+                        dlg_name.focused_border_color = error_color
+                        dlg_name.update()
+                        dlg_required_msg.update()
+                    return
                 dlg.open = False
                 page.update()
                 on_refresh(None)
@@ -88,29 +177,15 @@ def render_location_view(page: ft.Page, on_refresh):
             open_form_dialog(
                 page,
                 LOCATION_EDIT_TITLE,
-                form_column([dlg_name, dlg_company]),
+                form_column([dlg_name, dlg_required_msg]),
                 salvar_edicao,
                 BTN_SAVE,
                 width=500,
                 height=250,
             )
 
-        coluna.controls.append(
-            build_list_row(
-                f"{local['id']} - {local['name']}",
-                [
-                    action_button(
-                        ICON_EDIT,
-                        page.theme.color_scheme.primary,
-                        lambda e, local=local: abrir_edicao_location(local),
-                    ),
-                    action_button(
-                        ICON_DELETE,
-                        page.theme.color_scheme.error,
-                        lambda e, id=local["id"]: [location_delete(id), on_refresh(None)],
-                    ),
-                ],
-            )
-        )
+        list_view.controls.append(_build_grid_row(local))
 
+    coluna.controls.append(_build_grid_header())
+    coluna.controls.append(list_view)
     return coluna

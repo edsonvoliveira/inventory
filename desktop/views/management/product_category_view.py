@@ -1,8 +1,8 @@
-# desktop/views/management/product_view.py
+# desktop/views/management/product_category_view.py
 
 """
 Responsibilities:
-- Render the product view.
+- Render the product category view.
 - Wire UI events and interactions.
 """
 
@@ -10,82 +10,60 @@ from typing import Any, Dict, Optional
 
 import flet as ft
 
-from desktop.core.product_service import ProductService
-from desktop.core.ui_constants import ICON_ADD, ICON_DELETE, ICON_EDIT
+from desktop.core.product_category_service import ProductCategoryService
 from desktop.core.strings import (
     BTN_CREATE,
     BTN_SAVE,
-    ERROR_INVALID_PRICE,
-    FIELD_BARCODE,
-    FIELD_NAME,
-    FIELD_PRICE,
-    FIELD_SKU,
-    FIELD_UNIT,
+    CATEGORY_ADD,
+    CATEGORY_ADD_TITLE,
+    CATEGORY_EDIT_TITLE,
+    CATEGORY_TITLE,
     DIALOG_CONFIRM_DELETE,
-    HINT_PRICE,
-    HINT_PRODUCT_BARCODE,
-    HINT_PRODUCT_NAME,
-    HINT_PRODUCT_SKU,
-    HINT_UNIT,
-    PRODUCT_ADD,
-    PRODUCT_ADD_TITLE,
-    PRODUCT_EDIT_TITLE,
-    PRODUCT_TITLE,
+    FIELD_CODE,
+    FIELD_DESCRIPTION,
+    FIELD_NAME,
 )
+from desktop.core.ui_constants import ICON_ADD, ICON_DELETE, ICON_EDIT
 from desktop.utils.dialogs import action_button, confirm_dialog, form_column, open_form_dialog
 
 
-def render_product_view(page: ft.Page, on_refresh):
+def render_product_category_view(page: ft.Page, on_refresh):
     coluna = ft.Column(expand=True, spacing=10)
     list_view = ft.ListView(expand=True, spacing=8)
-    product_service = ProductService()
-    products_result = product_service.list()
-    produtos = products_result.data or []
+    service = ProductCategoryService()
+    result = service.list()
+    categorias = result.data or []
 
-    if not products_result.ok:
-        list_view.controls.append(ft.Text(products_result.message or "Erro ao carregar produtos."))
+    if not result.ok:
+        list_view.controls.append(ft.Text(result.message or "Erro ao carregar categorias."))
 
-    def criar_produto(e):
-        dlg_sku = ft.TextField(label=FIELD_SKU, hint_text=HINT_PRODUCT_SKU, autofocus=True)
-        dlg_barcode = ft.TextField(label=FIELD_BARCODE, hint_text=HINT_PRODUCT_BARCODE)
-        dlg_name = ft.TextField(label=FIELD_NAME, hint_text=HINT_PRODUCT_NAME)
-        dlg_unit_cost = ft.TextField(label=FIELD_PRICE, hint_text=HINT_PRICE)
-        dlg_unit_of_measure = ft.TextField(label=FIELD_UNIT, hint_text=HINT_UNIT)
+    def criar_categoria(e):
+        dlg_code = ft.TextField(label=FIELD_CODE, autofocus=True)
+        dlg_name = ft.TextField(label=FIELD_NAME)
+        dlg_description = ft.TextField(label=FIELD_DESCRIPTION)
         theme = page.theme
         error_color = theme.color_scheme.error if theme and theme.color_scheme else ft.Colors.RED
         dlg_required_msg = ft.Text("", color=error_color)
 
         def _set_required_styles(missing: bool):
             color = error_color if missing else None
-            dlg_sku.border_color = color
+            dlg_code.border_color = color
             dlg_name.border_color = color
-            dlg_sku.focused_border_color = color
+            dlg_code.focused_border_color = color
             dlg_name.focused_border_color = color
 
-        def salvar_produto(e, dlg):
-            sku = dlg_sku.value or ""
-            name = dlg_name.value or ""
-            barcode = dlg_barcode.value.strip() if dlg_barcode.value else ""
-            unit_of_measure = dlg_unit_of_measure.value.strip() if dlg_unit_of_measure.value else "UN"
-            result = product_service.create(
-                sku,
-                barcode,
-                name,
-                dlg_unit_cost.value or "",
-                unit_of_measure,
+        def salvar_categoria(e, dlg):
+            result = service.create(
+                dlg_code.value or "",
+                dlg_name.value or "",
+                dlg_description.value,
             )
             if not result.ok:
                 if result.error_code == "VALIDATION_ERROR":
                     dlg_required_msg.value = "Informacoes obrigatorias"
                     _set_required_styles(True)
-                    dlg_sku.update()
+                    dlg_code.update()
                     dlg_name.update()
-                    dlg_required_msg.update()
-                if result.error_code == "INVALID_PRICE":
-                    dlg_unit_cost.error_text = result.message
-                    dlg_unit_cost.update()
-                if result.error_code == "COMPANY_REQUIRED":
-                    dlg_required_msg.value = result.message
                     dlg_required_msg.update()
                 return
             dlg_required_msg.value = ""
@@ -96,27 +74,27 @@ def render_product_view(page: ft.Page, on_refresh):
 
         open_form_dialog(
             page,
-            PRODUCT_ADD_TITLE,
-            form_column(
-                [dlg_sku, dlg_barcode, dlg_name, dlg_unit_cost, dlg_unit_of_measure, dlg_required_msg]
-            ),
-            salvar_produto,
+            CATEGORY_ADD_TITLE,
+            form_column([dlg_code, dlg_name, dlg_description, dlg_required_msg]),
+            salvar_categoria,
             BTN_CREATE,
             width=500,
-            height=250,
+            height=280,
         )
 
     coluna.controls.append(
         ft.Row(
             [
-                ft.Text(PRODUCT_TITLE, size=28, weight=ft.FontWeight.BOLD, expand=1),
-                ft.ElevatedButton(f"{PRODUCT_ADD}  ", icon=ICON_ADD, on_click=criar_produto),
+                ft.Text(CATEGORY_TITLE, size=28, weight=ft.FontWeight.BOLD, expand=1),
+                ft.ElevatedButton(f"{CATEGORY_ADD}  ", icon=ICON_ADD, on_click=criar_categoria),
             ],
             spacing=5,
         )
     )
 
     header_bg = getattr(ft.Colors, "BLUE_GREY_50", ft.Colors.GREY_200)
+    row_bg = getattr(ft.Colors, "WHITE", ft.Colors.WHITE)
+    hover_bg = getattr(ft.Colors, "BLUE_GREY_100", ft.Colors.GREY_300)
     line_color = getattr(ft.Colors, "BLUE_GREY_100", ft.Colors.GREY_300)
 
     def _header_cell(label: str, *, width: Optional[int] = None, expand: Optional[int] = None):
@@ -139,9 +117,9 @@ def render_product_view(page: ft.Page, on_refresh):
         return ft.Container(
             content=ft.Row(
                 [
-                    _header_cell("ID", width=60),
-                    _header_cell("SKU", width=140),
-                    _header_cell("Nome", expand=3),
+                    _header_cell("Codigo", width=120),
+                    _header_cell("Nome", expand=2),
+                    _header_cell("Descricao", expand=3),
                     _header_cell("Acoes", width=120),
                 ],
                 spacing=0,
@@ -153,30 +131,30 @@ def render_product_view(page: ft.Page, on_refresh):
             ),
         )
 
-    def _build_grid_row(produto: Dict[str, Any]):
+    def _build_grid_row(categoria: Dict[str, Any]):
         theme = page.theme
         primary_color = (theme.color_scheme.primary if theme and theme.color_scheme else None) or ft.Colors.BLUE
         error_color = (theme.color_scheme.error if theme and theme.color_scheme else None) or ft.Colors.RED
         row = ft.Row(
             [
-                _row_cell(str(produto.get("id") or "-"), width=60),
-                _row_cell(produto.get("sku") or "-", width=140),
-                _row_cell(produto.get("name") or "-", expand=3),
+                _row_cell(categoria.get("code", "") or "-", width=120),
+                _row_cell(categoria.get("name", "") or "-", expand=2),
+                _row_cell(categoria.get("description", "") or "-", expand=3),
                 ft.Container(
                     content=ft.Row(
                         [
                             action_button(
                                 ICON_EDIT,
                                 primary_color,
-                                lambda e, produto=produto: abrir_edicao_product(produto),
+                                lambda e, categoria=categoria: abrir_edicao_categoria(categoria),
                             ),
                             action_button(
                                 ICON_DELETE,
                                 error_color,
-                                lambda e, id=produto.get("id"): confirm_dialog(
+                                lambda e, categoria=categoria: confirm_dialog(
                                     page,
                                     DIALOG_CONFIRM_DELETE,
-                                    lambda: [product_service.delete(id), on_refresh(None)],
+                                    lambda: [service.delete(categoria.get("uuid") or ""), on_refresh(None)],
                                 ),
                             ),
                         ],
@@ -191,50 +169,43 @@ def render_product_view(page: ft.Page, on_refresh):
             ],
             spacing=0,
         )
-        return ft.Container(
+
+        row_container = ft.Container(
             content=row,
+            bgcolor=row_bg,
             border=ft.border.only(bottom=ft.BorderSide(1, line_color)),
         )
+        return row_container
 
-    for produto in produtos:
-        def abrir_edicao_product(produto=produto):
-            dlg_sku = ft.TextField(label=FIELD_SKU, value=produto["sku"])
-            dlg_barcode = ft.TextField(label=FIELD_BARCODE, value=produto["barcode"] or "")
-            dlg_name = ft.TextField(label=FIELD_NAME, value=produto["name"])
-            dlg_unit_cost = ft.TextField(label=FIELD_PRICE, value=str(produto["unit_cost"]))
-            dlg_unit_of_measure = ft.TextField(label=FIELD_UNIT, value=produto["unit_of_measure"])
+    for categoria in categorias:
+        def abrir_edicao_categoria(categoria=categoria):
+            dlg_code = ft.TextField(label=FIELD_CODE, value=categoria.get("code") or "")
+            dlg_name = ft.TextField(label=FIELD_NAME, value=categoria.get("name") or "")
+            dlg_description = ft.TextField(label=FIELD_DESCRIPTION, value=categoria.get("description") or "")
             theme = page.theme
             error_color = theme.color_scheme.error if theme and theme.color_scheme else ft.Colors.RED
             dlg_required_msg = ft.Text("", color=error_color)
 
             def _set_required_styles(missing: bool):
                 color = error_color if missing else None
-                dlg_sku.border_color = color
+                dlg_code.border_color = color
                 dlg_name.border_color = color
-                dlg_sku.focused_border_color = color
+                dlg_code.focused_border_color = color
                 dlg_name.focused_border_color = color
 
             def salvar_edicao(e, dlg):
-                result = product_service.update(
-                    produto["id"],
-                    dlg_sku.value or "",
-                    (dlg_barcode.value or "").strip(),
+                result = service.update(
+                    categoria.get("uuid") or "",
+                    dlg_code.value or "",
                     dlg_name.value or "",
-                    dlg_unit_cost.value or "",
-                    dlg_unit_of_measure.value or "",
+                    dlg_description.value,
                 )
                 if not result.ok:
                     if result.error_code == "VALIDATION_ERROR":
                         dlg_required_msg.value = "Informacoes obrigatorias"
                         _set_required_styles(True)
-                        dlg_sku.update()
+                        dlg_code.update()
                         dlg_name.update()
-                        dlg_required_msg.update()
-                    if result.error_code == "INVALID_PRICE":
-                        dlg_unit_cost.error_text = result.message
-                        dlg_unit_cost.update()
-                    if result.error_code == "COMPANY_REQUIRED":
-                        dlg_required_msg.value = result.message
                         dlg_required_msg.update()
                     return
                 dlg_required_msg.value = ""
@@ -245,17 +216,15 @@ def render_product_view(page: ft.Page, on_refresh):
 
             open_form_dialog(
                 page,
-                PRODUCT_EDIT_TITLE,
-                form_column(
-                    [dlg_sku, dlg_barcode, dlg_name, dlg_unit_cost, dlg_unit_of_measure, dlg_required_msg]
-                ),
+                CATEGORY_EDIT_TITLE,
+                form_column([dlg_code, dlg_name, dlg_description, dlg_required_msg]),
                 salvar_edicao,
                 BTN_SAVE,
                 width=500,
-                height=250,
+                height=280,
             )
 
-        list_view.controls.append(_build_grid_row(produto))
+        list_view.controls.append(_build_grid_row(categoria))
 
     coluna.controls.append(_build_grid_header())
     coluna.controls.append(list_view)

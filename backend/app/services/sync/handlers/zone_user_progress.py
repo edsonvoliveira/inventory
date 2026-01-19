@@ -19,7 +19,7 @@ class ZoneUserProgressHandler(BaseSyncHandler):
     table_name = "zone_user_progress"
 
     # ---------------------------
-    # PULL (Server → Desktop)
+    # PULL (Server -> Desktop)
     # ---------------------------
     def pull(
         self,
@@ -66,6 +66,10 @@ class ZoneUserProgressHandler(BaseSyncHandler):
     ) -> None:
         data = payload.copy()
         data["uuid"] = record_uuid
+        if "zone_id" not in data and "zone_server_id" in data:
+            data["zone_id"] = data.pop("zone_server_id")
+        if "user_id" not in data and "user_server_id" in data:
+            data["user_id"] = data.pop("user_server_id")
 
         supabase = get_supabase_service_client()
         supabase.table(self.table_name).insert(data).execute()
@@ -81,6 +85,10 @@ class ZoneUserProgressHandler(BaseSyncHandler):
         user: UserContext,
     ) -> None:
         data = payload.copy()
+        if "zone_id" not in data and "zone_server_id" in data:
+            data["zone_id"] = data.pop("zone_server_id")
+        if "user_id" not in data and "user_server_id" in data:
+            data["user_id"] = data.pop("user_server_id")
 
         supabase = get_supabase_service_client()
         supabase.table(self.table_name).update(data).eq(

@@ -82,15 +82,24 @@ class InventoryItemSyncHandler(BaseSyncHandler):
     ) -> None:
         sb = get_supabase_service_client()
 
+        zone_id = payload.get("zone_id", payload.get("zone_server_id"))
+        if zone_id is None:
+            raise RuntimeError("zone_id ausente ou invalido")
+
+        product_id = payload.get("product_id", payload.get("product_server_id"))
+        user_id = payload.get("user_id", payload.get("user_server_id", user.db_user_id))
+        if user_id is None:
+            raise RuntimeError("user_id ausente ou invalido")
+
         insert_data = {
             "uuid": record_uuid,
-            "zone_id": payload["zone_id"],
-            "product_id": payload.get("product_id"),
+            "zone_id": zone_id,
+            "product_id": product_id,
             "qty_counted": payload["qty_counted"],
             "device_timestamp": payload["device_timestamp"],
             "source": payload.get("source", "mobile"),
-            "user_id": user.db_user_id,
-            "created_by_user_id": user.db_user_id,
+            "user_id": int(user_id),
+            "created_by_user_id": int(user_id),
         }
 
         resp = sb.table("inventory_items").insert(insert_data).execute()
@@ -106,24 +115,24 @@ class InventoryItemSyncHandler(BaseSyncHandler):
         row = rows[0]
 
         if not isinstance(row, dict) or "id" not in row:
-            raise RuntimeError("Resposta inválida do Supabase")
+            raise RuntimeError("Resposta invalida do Supabase")
 
         raw_id = row["id"]
 
         if not isinstance(raw_id, (int, str)):
-            raise RuntimeError("ID inválido retornado")
+            raise RuntimeError("ID invalido retornado")
 
         item_id: int = int(raw_id)
 
         if not isinstance(item_id, int):
-            raise RuntimeError("ID inválido do inventory_item")
+            raise RuntimeError("ID invalido do inventory_item")
 
         sb.table("inventory_item_events").insert({
             "inventory_item_id": item_id,
             "action": "created",
             "previous_qty": None,
             "new_qty": insert_data["qty_counted"],
-            "user_id": user.db_user_id,
+            "user_id": int(user_id),
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "notes": "Created via sync",
         }).execute()
@@ -140,6 +149,10 @@ class InventoryItemSyncHandler(BaseSyncHandler):
     ) -> None:
         sb = get_supabase_service_client()
 
+        user_id = payload.get("user_id", payload.get("user_server_id", user.db_user_id))
+        if user_id is None:
+            raise RuntimeError("user_id ausente ou invalido")
+
         existing = (
             sb.table("inventory_items")
             .select("id, qty_counted")
@@ -149,16 +162,16 @@ class InventoryItemSyncHandler(BaseSyncHandler):
         )
 
         if not isinstance(existing.data, list) or not existing.data:
-            raise RuntimeError("inventory_item não encontrado")
+            raise RuntimeError("inventory_item nao encontrado")
 
         row = existing.data[0]
         if not isinstance(row, dict):
-            raise RuntimeError("Resposta inválida")
+            raise RuntimeError("Resposta invalida")
 
         raw_id = row["id"]
 
         if not isinstance(raw_id, (int, str)):
-            raise RuntimeError("ID inválido")
+            raise RuntimeError("ID invalido")
 
         item_id = int(raw_id)
 
@@ -182,7 +195,7 @@ class InventoryItemSyncHandler(BaseSyncHandler):
         }
 
         if not update_data:
-            raise RuntimeError("Nenhum campo válido para update")
+            raise RuntimeError("Nenhum campo valido para update")
 
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
@@ -195,7 +208,7 @@ class InventoryItemSyncHandler(BaseSyncHandler):
             "action": "updated",
             "previous_qty": previous_qty,
             "new_qty": update_data.get("qty_counted", previous_qty),
-            "user_id": user.db_user_id,
+            "user_id": int(user_id),
             "timestamp": payload.get("device_timestamp")
                 or datetime.now(timezone.utc).isoformat(),
             "notes": "Updated via sync",

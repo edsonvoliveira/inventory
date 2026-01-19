@@ -96,3 +96,56 @@ FIELD_REQUIRED = "Obrigatorio"
 
 LOGIN_EMAIL_LABEL = 'Email'
 LOGIN_PASSWORD_LABEL = 'Senha'
+
+SECTION_PRODUCT_CATEGORY = "Categorias de Produto"
+CATEGORY_TITLE = "Categorias de Produto"
+CATEGORY_ADD = "Adicionar Categoria"
+CATEGORY_ADD_TITLE = "Adicionar Categoria"
+CATEGORY_EDIT_TITLE = "Editar Categoria"
+FIELD_CODE = "Codigo"
+FIELD_DESCRIPTION = "Descricao"
+
+SECTION_PRODUCT_BARCODE = "Codigos de Barras"
+SECTION_INVENTORY_EVENT = "Eventos de Inventario"
+SECTION_ZONE = "Zonas"
+SECTION_EVENT_TARGET = "Targets de Evento (Produtos)"
+
+BARCODE_TITLE = "Codigos de Barras"
+BARCODE_ADD = "Adicionar Codigo"
+BARCODE_ADD_TITLE = "Adicionar Codigo de Barras"
+BARCODE_EDIT_TITLE = "Editar Codigo de Barras"
+
+EVENT_TITLE = "Eventos de Inventario"
+EVENT_ADD = "Adicionar Evento"
+EVENT_ADD_TITLE = "Adicionar Evento"
+EVENT_EDIT_TITLE = "Editar Evento"
+
+ZONE_TITLE = "Zonas"
+ZONE_ADD = "Adicionar Zona"
+ZONE_ADD_TITLE = "Adicionar Zona"
+ZONE_EDIT_TITLE = "Editar Zona"
+
+TARGET_TITLE = "Targets de Evento (Produtos)"
+TARGET_ADD = "Adicionar Target"
+TARGET_ADD_TITLE = "Adicionar Target"
+TARGET_EDIT_TITLE = "Editar Target"
+
+FIELD_CODE = "Codigo"
+FIELD_DESCRIPTION = "Descricao"
+FIELD_LOCATION = "Local"
+FIELD_EVENT = "Evento"
+FIELD_PRODUCT = "Produto"
+FIELD_EVENT_TYPE = "Tipo de Evento"
+FIELD_STATUS = "Status"
+FIELD_REQUIRED_COUNTS = "Contagens Obrigatorias"
+FIELD_REQUIRED_AUDITS = "Auditorias Obrigatorias"
+FIELD_TOLERANCE_PERCENT = "Tolerancia (%)"
+FIELD_TOLERANCE_ABSOLUTE = "Tolerancia (Abs)"
+FIELD_EXPECTED_QTY = "Quantidade Esperada"
+
+
+SECTION_DASHBOARD = "Dashboard"
+
+FIELD_TITLE = "Titulo"
+
+DASHBOARD_TITLE = "Dashboard"

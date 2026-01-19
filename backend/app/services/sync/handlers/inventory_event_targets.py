@@ -6,8 +6,6 @@ Responsibilities:
 - Implement pull and push operations.
 """
 
-# backend/app/services/sync/handlers/inventory_event_targets.py
-
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -54,11 +52,11 @@ class InventoryEventTargetSyncHandler(BaseSyncHandler):
         return out
 
     # --------------------------------------------------
-    # Helpers (normalização para Pylance + robustez)
+    # Helpers (normalizacao para Pylance + robustez)
     # --------------------------------------------------
     def _first_row_as_dict(self, resp, err_msg: str) -> Dict[str, Any]:
         """
-        Converte resp.data (List[JSON] | None) em Dict[str, Any] com validações.
+        Converte resp.data (List[JSON] | None) em Dict[str, Any] com validacoes.
         Evita warnings do Pylance e erros de runtime.
         """
         data = getattr(resp, "data", None)
@@ -84,55 +82,53 @@ class InventoryEventTargetSyncHandler(BaseSyncHandler):
     def insert(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
 
-        # 1) Resolver event_id via event_uuid
-        event_uuid = payload.get("event_uuid")
-        if not isinstance(event_uuid, str) or not event_uuid:
-            raise RuntimeError("event_uuid ausente ou inválido")
+        event_id = payload.get("event_id", payload.get("event_server_id"))
+        if event_id is None:
+            event_uuid = payload.get("event_uuid")
+            if not isinstance(event_uuid, str) or not event_uuid:
+                raise RuntimeError("event_uuid ausente ou invalido")
 
-        event_resp = (
-            sb.table("inventory_events")
-            .select("id")
-            .eq("uuid", event_uuid)
-            .limit(1)
-            .execute()
-        )
+            event_resp = (
+                sb.table("inventory_events")
+                .select("id")
+                .eq("uuid", event_uuid)
+                .limit(1)
+                .execute()
+            )
 
-        event_row = self._first_row_as_dict(event_resp, "Evento não encontrado para target")
-        event_id = self._row_id_as_int(event_row, "ID inválido do evento")
+            event_row = self._first_row_as_dict(event_resp, "Evento nao encontrado para target")
+            event_id = self._row_id_as_int(event_row, "ID invalido do evento")
 
-        # 2) Resolver product_id via product_uuid
-        product_uuid = payload.get("product_uuid")
-        if not isinstance(product_uuid, str) or not product_uuid:
-            raise RuntimeError("product_uuid ausente ou inválido")
+        product_id = payload.get("product_id", payload.get("product_server_id"))
+        if product_id is None:
+            product_uuid = payload.get("product_uuid")
+            if not isinstance(product_uuid, str) or not product_uuid:
+                raise RuntimeError("product_uuid ausente ou invalido")
 
-        product_resp = (
-            sb.table("products")
-            .select("id")
-            .eq("uuid", product_uuid)
-            .limit(1)
-            .execute()
-        )
+            product_resp = (
+                sb.table("products")
+                .select("id")
+                .eq("uuid", product_uuid)
+                .limit(1)
+                .execute()
+            )
 
-        product_row = self._first_row_as_dict(product_resp, "Produto não encontrado para target")
-        product_id = self._row_id_as_int(product_row, "ID inválido do produto")
+            product_row = self._first_row_as_dict(product_resp, "Produto nao encontrado para target")
+            product_id = self._row_id_as_int(product_row, "ID invalido do produto")
 
-        # 3) Insert do target
         expected_qty = payload.get("expected_qty", 0)
 
         data = {
             "uuid": record_uuid,
             "company_id": user.company_server_id,
-            "event_id": event_id,
-            "product_id": product_id,
+            "event_id": int(event_id),
+            "product_id": int(product_id),
             "expected_qty": expected_qty,
             "is_active": True,
         }
 
         sb.table("inventory_event_targets").insert(data).execute()
 
-    # ---------------------------
-    # PUSH (UPDATE)
-    # ---------------------------
     def update(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         update_data: Dict[str, Any] = {}
 
@@ -143,7 +139,7 @@ class InventoryEventTargetSyncHandler(BaseSyncHandler):
             update_data["is_active"] = payload["is_active"]
 
         if not update_data:
-            raise RuntimeError("Nenhum campo válido para update")
+            raise RuntimeError("Nenhum campo valido para update")
 
         sb = get_supabase_service_client()
         sb.table("inventory_event_targets").update(update_data).eq("uuid", record_uuid).execute()

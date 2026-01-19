@@ -59,12 +59,15 @@ class InventoryEventSyncHandler(BaseSyncHandler):
     def insert(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
 
+        location_id = payload.get("location_id", payload.get("location_server_id"))
+        if location_id is None:
+            raise RuntimeError("location_id ausente ou invalido")
         data = {
             "uuid": record_uuid,
             "company_id": user.company_server_id,
-            "location_id": payload["location_id"],  # server_id
+            "location_id": location_id,  # server_id
             "title": payload["title"],
-            "event_type": payload["event_type"],
+            "event_type": payload.get("event_type"),
             "status": payload.get("status", "planned"),
             "required_counts": payload.get("required_counts", 1),
             "required_audits": payload.get("required_audits"),
