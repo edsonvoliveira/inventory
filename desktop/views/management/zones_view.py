@@ -47,6 +47,11 @@ def render_zones_view(page: ft.Page, on_refresh):
     result = service.list()
     zonas = result.data or []
     event_options = _event_options()
+    event_status_by_id = {
+        row.get("server_id"): (row.get("status") or "").lower()
+        for row in InventoryEventsRepo().get_all()
+        if row.get("server_id") is not None
+    }
 
     if not result.ok:
         list_view.controls.append(ft.Text(result.message or "Erro ao carregar zonas."))
@@ -82,6 +87,9 @@ def render_zones_view(page: ft.Page, on_refresh):
                     _set_required_styles(True)
                     dlg_event.update()
                     dlg_name.update()
+                    dlg_required_msg.update()
+                elif result.error_code == "REQUIRED_COUNTS_NOT_MET":
+                    dlg_required_msg.value = "Required counts nao atingido para fechar a zona."
                     dlg_required_msg.update()
                 return
             dlg_required_msg.value = ""
@@ -160,6 +168,14 @@ def render_zones_view(page: ft.Page, on_refresh):
         theme = page.theme
         primary_color = (theme.color_scheme.primary if theme and theme.color_scheme else None) or ft.Colors.BLUE
         error_color = (theme.color_scheme.error if theme and theme.color_scheme else None) or ft.Colors.RED
+        count_status = (zona.get("count_status") or "").lower()
+        lock_status = (zona.get("lock_status") or "").lower()
+        event_status = event_status_by_id.get(zona.get("event_server_id"))
+        is_read_only = (
+            count_status in {"finished", "locked"}
+            or lock_status == "locked"
+            or event_status in {"closed", "finalized"}
+        )
         row = ft.Row(
             [
                 _row_cell(zona.get("name") or "-", expand=2),
@@ -172,6 +188,7 @@ def render_zones_view(page: ft.Page, on_refresh):
                                 ICON_EDIT,
                                 primary_color,
                                 lambda e, zona=zona: abrir_edicao(zona),
+                                disabled=is_read_only,
                             ),
                             action_button(
                                 ICON_DELETE,
@@ -181,6 +198,7 @@ def render_zones_view(page: ft.Page, on_refresh):
                                     DIALOG_CONFIRM_DELETE,
                                     lambda: [service.delete(zona.get("uuid") or ""), on_refresh(None)],
                                 ),
+                                disabled=is_read_only,
                             ),
                         ],
                         spacing=4,
@@ -201,6 +219,15 @@ def render_zones_view(page: ft.Page, on_refresh):
 
     for zona in zonas:
         def abrir_edicao(zona=zona):
+            count_status = (zona.get("count_status") or "").lower()
+            lock_status = (zona.get("lock_status") or "").lower()
+            event_status = event_status_by_id.get(zona.get("event_server_id"))
+            if (
+                count_status in {"finished", "locked"}
+                or lock_status == "locked"
+                or event_status in {"closed", "finalized"}
+            ):
+                return
             dlg_event = ft.Dropdown(
                 label=FIELD_EVENT,
                 options=event_options,
@@ -236,6 +263,12 @@ def render_zones_view(page: ft.Page, on_refresh):
                         _set_required_styles(True)
                         dlg_event.update()
                         dlg_name.update()
+                        dlg_required_msg.update()
+                    elif result.error_code == "REQUIRED_COUNTS_NOT_MET":
+                        dlg_required_msg.value = "Required counts nao atingido para fechar a zona."
+                        dlg_required_msg.update()
+                    elif result.error_code == "ZONE_READ_ONLY":
+                        dlg_required_msg.value = "Zona fechada nao permite edicao."
                         dlg_required_msg.update()
                     return
                 dlg_required_msg.value = ""

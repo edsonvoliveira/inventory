@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.services.sync.handlers.base import BaseSyncHandler
+from app.services.sync.handlers._helpers import should_apply_lww
 from app.clients.supabase_client import get_supabase_service_client
 from app.core.user_context import UserContext
 
@@ -57,20 +58,7 @@ class UserSyncHandler(BaseSyncHandler):
     # PUSH (INSERT)
     # ---------------------------
     def insert(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
-        sb = get_supabase_service_client()
-
-        data = {
-            "uuid": record_uuid,
-            "company_id": user.company_server_id,
-            "email": payload["email"],
-            "username": payload.get("username"),
-            "name": payload["name"],
-            "role": payload.get("role", "auditor"),
-            "supabase_auth_id": payload.get("supabase_auth_id"),
-            "is_active": payload.get("is_active", True),
-        }
-
-        sb.table("users").insert(data).execute()
+        raise RuntimeError("Users nao suportam insert via sync")
 
     # ---------------------------
     # PUSH (UPDATE)
@@ -78,15 +66,22 @@ class UserSyncHandler(BaseSyncHandler):
     def update(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
 
-        update_data = {}
+        if not should_apply_lww(sb, self.table_name, record_uuid, payload.get("client_updated_at")):
+            return
 
-        allowed_fields = [
-            "email",
-            "username",
+        self._reject_unknown_fields(payload, allowed_fields=[
             "name",
             "role",
             "is_active",
-            "supabase_auth_id",
+            "client_updated_at",
+        ])
+
+        update_data = {}
+
+        allowed_fields = [
+            "name",
+            "role",
+            "is_active",
         ]
 
         for field in allowed_fields:
@@ -104,10 +99,4 @@ class UserSyncHandler(BaseSyncHandler):
     # PUSH (DELETE)
     # ---------------------------
     def delete(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
-        sb = get_supabase_service_client()
-
-        sb.table("users").update(
-            {"is_active": False}
-        ).eq(
-            "uuid", record_uuid
-        ).execute()
+        raise RuntimeError("Users nao suportam delete via sync")

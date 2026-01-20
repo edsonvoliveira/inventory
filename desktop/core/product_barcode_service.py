@@ -6,6 +6,7 @@ Responsibilities:
 """
 
 from desktop.core.result import Result
+from desktop.core.permissions import can_write_entity
 from desktop.data.repositories.product_barcodes_repo import ProductBarcodesRepo
 from desktop.utils.validation import is_required
 
@@ -24,6 +25,8 @@ class ProductBarcodeService:
         return Result(ok=True, data=data)
 
     def create(self, product_server_id: str | int | None, barcode: str, description: str | None) -> Result[None]:
+        if not can_write_entity("product_barcodes"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         if not is_required(barcode) or not product_server_id:
             return Result(ok=False, message="Informacoes obrigatorias", error_code="VALIDATION_ERROR")
         try:
@@ -49,6 +52,8 @@ class ProductBarcodeService:
         barcode: str,
         description: str | None,
     ) -> Result[None]:
+        if not can_write_entity("product_barcodes"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         if not is_required(barcode) or not product_server_id:
             return Result(ok=False, message="Informacoes obrigatorias", error_code="VALIDATION_ERROR")
         try:
@@ -69,6 +74,8 @@ class ProductBarcodeService:
         return Result(ok=True)
 
     def delete(self, uuid: str) -> Result[None]:
+        if not can_write_entity("product_barcodes"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         try:
             ProductBarcodesRepo().soft_delete(uuid)
         except Exception:

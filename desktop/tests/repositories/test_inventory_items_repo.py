@@ -15,6 +15,8 @@ Responsabilities:
 - Verifies correct handling of inventory items data
 """
 
+import pytest
+
 from desktop.data.repositories.inventory_items_repo import InventoryItemsRepo
 
 def test_inventory_items_create(conn_with_company):
@@ -70,19 +72,8 @@ def test_inventory_items_soft_delete(conn_with_company):
         "qty_counted": 5,
     })
 
-    repo.soft_delete(uuid)
-
-    row = conn_with_company.execute(
-        """
-        SELECT deleted_at, synced
-        FROM inventory_items_local
-        WHERE uuid = ?
-        """,
-        (uuid,),
-    ).fetchone()
-
-    assert row[0] is not None
-    assert row[1] == 0
+    with pytest.raises(RuntimeError):
+        repo.soft_delete(uuid)
 
 
 def test_inventory_items_restore(conn_with_company):
@@ -94,20 +85,8 @@ def test_inventory_items_restore(conn_with_company):
         "qty_counted": 5,
     })
 
-    repo.soft_delete(uuid)
-    repo.restore(uuid)
-
-    row = conn_with_company.execute(
-        """
-        SELECT deleted_at, synced
-        FROM inventory_items_local
-        WHERE uuid = ?
-        """,
-        (uuid,),
-    ).fetchone()
-
-    assert row[0] is None
-    assert row[1] == 0
+    with pytest.raises(RuntimeError):
+        repo.restore(uuid)
 
 
 def test_inventory_items_get_all_active_only(conn_with_company):
@@ -124,13 +103,11 @@ def test_inventory_items_get_all_active_only(conn_with_company):
         "qty_counted": 3,
     })
 
-    repo.soft_delete(uuid_deleted)
-
     rows = repo.get_all()
     uuids = {r["uuid"] for r in rows}
 
     assert uuid_active in uuids
-    assert uuid_deleted not in uuids
+    assert uuid_deleted in uuids
 
 
 def test_inventory_items_get_all_including_deleted(conn_with_company):
@@ -146,8 +123,6 @@ def test_inventory_items_get_all_including_deleted(conn_with_company):
         "product_server_id": 21,
         "qty_counted": 3,
     })
-
-    repo.soft_delete(uuid_deleted)
 
     rows = repo.get_all(active_only=False)
     uuids = {r["uuid"] for r in rows}
@@ -181,6 +156,7 @@ def test_inventory_items_upsert_many(conn_with_company):
             "zone_server_id": 10,
             "product_server_id": 20,
             "qty_counted": 7,
+            "device_timestamp": "2025-01-01T10:00:00Z",
             "synced": 1,
             "source": "server",
         }

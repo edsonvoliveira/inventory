@@ -13,12 +13,19 @@ import sqlite3
 from dataclasses import dataclass
 
 import pytest
+from dotenv import load_dotenv
+from pathlib import Path
 
 from desktop.core.session_service import SessionService
 from desktop.core.db_lifecycle import recreate_database
 from desktop.data.db.connection import get_connection
 from desktop.data.repositories.app_meta_repo import set_meta
 from typing import Iterator
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+USER_ENV = REPO_ROOT / "backend" / ".user_test"
+if USER_ENV.exists():
+    load_dotenv(USER_ENV, override=True)
 
 
 @dataclass(frozen=True)
@@ -83,6 +90,7 @@ def e2e_clean_db(e2e_context: E2EContext) -> Iterator[sqlite3.Connection]:
 
         # opcional: garantir estado limpo de marcadores
         set_meta("bootstrap_done", "", conn)
+        set_meta(f"last_server_sync_at:{e2e_context.company_server_id}", "", conn)
         set_meta("last_pull_at", "", conn)
 
         conn.commit()

@@ -26,7 +26,7 @@ def get_handler():
         if isinstance(obj, type) and issubclass(obj, BaseSyncHandler):
             if getattr(obj, "table_name", None) == "zone_user_progress":
                 return obj()
-    raise RuntimeError("Handler de zone_user_progress não encontrado.")
+    raise RuntimeError("Handler de zone_user_progress nÃ£o encontrado.")
 
 
 def ensure_location_id() -> int:
@@ -48,7 +48,14 @@ def ensure_location_id() -> int:
 
 def ensure_event_id() -> int:
     sb = get_supabase_service_client()
-    resp = sb.table("inventory_events").select("id").eq("company_id", TEST_COMPANY_ID).limit(1).execute()
+    resp = (
+        sb.table("inventory_events")
+        .select("id, status")
+        .eq("company_id", TEST_COMPANY_ID)
+        .neq("status", "finalized")
+        .limit(1)
+        .execute()
+    )
     if resp.data:
         return int(resp.data[0]["id"])
     event_uuid = str(uuid4())
@@ -59,7 +66,7 @@ def ensure_event_id() -> int:
         "location_id": location_id,
         "title": "Evento Auto (tests)",
         "event_type": "full",
-        "status": "planned",
+        "status": "open",
         "required_counts": 1,
         "is_active": True,
     }).execute()
@@ -69,13 +76,21 @@ def ensure_event_id() -> int:
 
 def ensure_zone_id() -> int:
     sb = get_supabase_service_client()
-    # tenta achar zona pertencente à company
+    # tenta achar zona pertencente a company
     resp = sb.table("zones").select("id, event_id").limit(10).execute()
     if resp.data:
         for z in resp.data:
-            ev = sb.table("inventory_events").select("company_id").eq("id", z["event_id"]).limit(1).execute()
-            if ev.data and int(ev.data[0]["company_id"]) == TEST_COMPANY_ID:
-                return int(z["id"])
+            ev = (
+                sb.table("inventory_events")
+                .select("company_id, status")
+                .eq("id", z["event_id"])
+                .limit(1)
+                .execute()
+            )
+            if ev.data:
+                row = ev.data[0]
+                if int(row["company_id"]) == TEST_COMPANY_ID and row.get("status") != "finalized":
+                    return int(z["id"])
 
     zone_uuid = str(uuid4())
     event_id = ensure_event_id()
@@ -177,7 +192,15 @@ def test_zone_user_progress_push_update():
     }).execute()
 
     user = FakeCurrentUser(company_server_id=TEST_COMPANY_ID, db_user_id=TEST_USER_ID)
-    handler.update(payload={"items_counted": 10, "qty_total": 100}, record_uuid=record_uuid, user=user)
+    handler.update(
+        payload={
+            "items_counted": 10,
+            "qty_total": 100,
+            "client_updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+        record_uuid=record_uuid,
+        user=user,
+    )
 
     try:
         resp = sb.table("zone_user_progress").select("items_counted, qty_total").eq("uuid", record_uuid).execute()

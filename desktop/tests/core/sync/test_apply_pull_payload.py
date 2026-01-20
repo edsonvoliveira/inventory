@@ -27,7 +27,7 @@ def test_apply_pull_payload_products(conn_with_company):
         "server_ts": "2026-01-10T10:30:00Z",
     }
 
-    apply_pull_payload(payload, conn_with_company)
+    apply_pull_payload(payload, conn_with_company, company_id=1)
 
     row = conn_with_company.execute(
         """
@@ -72,7 +72,7 @@ def test_apply_pull_payload_multiple_entities(conn_with_company):
         ],
     }
 
-    apply_pull_payload(payload, conn_with_company)
+    apply_pull_payload(payload, conn_with_company, company_id=1)
 
     cat = conn_with_company.execute(
         "SELECT name FROM product_categories_local WHERE uuid = 'c-1'"

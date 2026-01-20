@@ -31,6 +31,7 @@ class PullExecutor:
     ) -> Dict[str, Any]:
         data: Dict[str, list] = {}
         server_ts = datetime.now(timezone.utc).isoformat()
+        server_now = server_ts
 
         for entity, handler in SYNC_HANDLERS.items():
             rows = handler.pull(
@@ -41,6 +42,8 @@ class PullExecutor:
                 if isinstance(row, dict) and "server_id" not in row and "id" in row:
                     row["server_id"] = row["id"]
                 if isinstance(row, dict):
+                    # deleted_at is server-side only; do not send to clients
+                    row.pop("deleted_at", None)
                     key_map = {
                         "company_id": "company_server_id",
                         "location_id": "location_server_id",
@@ -63,6 +66,7 @@ class PullExecutor:
 
         payload: Dict[str, Any] = {
             "server_ts": server_ts,
+            "server_now": server_now,
         }
         payload.update(data)
         return payload

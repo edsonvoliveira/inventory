@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 import flet as ft
 
 from desktop.core.ui_constants import ICON_ADD, ICON_DELETE, ICON_EDIT
+from desktop.core.permissions import can_write_entity
 from desktop.core.strings import (
     BTN_CREATE,
     BTN_SAVE,
@@ -42,6 +43,7 @@ def render_user_view(page: ft.Page, on_refresh):
     usuarios = user_get_all()
     roles = role_get_all()
     companies = company_get_all()
+    can_manage = can_write_entity("users")
 
     def criar_usuario(e):
         dlg_email = ft.TextField(label=FIELD_EMAIL, hint_text=HINT_USER_EMAIL, autofocus=True)
@@ -77,7 +79,12 @@ def render_user_view(page: ft.Page, on_refresh):
         ft.Row(
             [
                 ft.Text(USER_TITLE, size=28, weight=ft.FontWeight.BOLD, expand=1),
-                ft.ElevatedButton(f"{USER_ADD}  ", icon=ICON_ADD, on_click=criar_usuario),
+                ft.ElevatedButton(
+                    f"{USER_ADD}  ",
+                    icon=ICON_ADD,
+                    on_click=criar_usuario,
+                    disabled=not can_manage,
+                ),
             ],
             spacing=5,
         )
@@ -125,6 +132,26 @@ def render_user_view(page: ft.Page, on_refresh):
         theme = page.theme
         primary_color = (theme.color_scheme.primary if theme and theme.color_scheme else None) or ft.Colors.BLUE
         error_color = (theme.color_scheme.error if theme and theme.color_scheme else None) or ft.Colors.RED
+        actions = (
+            ft.Row(
+                [
+                    action_button(
+                        ICON_EDIT,
+                        primary_color,
+                        lambda e, usuario=usuario: abrir_edicao_user(usuario),
+                    ),
+                    action_button(
+                        ICON_DELETE,
+                        error_color,
+                        lambda e, id=usuario.get("id"): [user_delete(id), on_refresh(None)],
+                    ),
+                ],
+                spacing=4,
+                alignment=ft.MainAxisAlignment.END,
+            )
+            if can_manage
+            else ft.Text("-")
+        )
         row = ft.Row(
             [
                 _row_cell(str(usuario.get("id") or "-"), width=60),
@@ -132,22 +159,7 @@ def render_user_view(page: ft.Page, on_refresh):
                 _row_cell(str(usuario.get("company_id") or "-"), expand=2),
                 _row_cell(str(usuario.get("role_id") or "-"), width=120),
                 ft.Container(
-                    content=ft.Row(
-                        [
-                            action_button(
-                                ICON_EDIT,
-                                primary_color,
-                                lambda e, usuario=usuario: abrir_edicao_user(usuario),
-                            ),
-                            action_button(
-                                ICON_DELETE,
-                                error_color,
-                                lambda e, id=usuario.get("id"): [user_delete(id), on_refresh(None)],
-                            ),
-                        ],
-                        spacing=4,
-                        alignment=ft.MainAxisAlignment.END,
-                    ),
+                    content=actions,
                     width=120,
                     padding=ft.padding.symmetric(vertical=4, horizontal=0),
                     alignment=ft.alignment.center_right,

@@ -48,7 +48,14 @@ def ensure_location_id() -> int:
 
 def ensure_event_id() -> int:
     sb = get_supabase_service_client()
-    resp = sb.table("inventory_events").select("id").eq("company_id", TEST_COMPANY_ID).limit(1).execute()
+    resp = (
+        sb.table("inventory_events")
+        .select("id, status")
+        .eq("company_id", TEST_COMPANY_ID)
+        .neq("status", "finalized")
+        .limit(1)
+        .execute()
+    )
     if resp.data:
         return int(resp.data[0]["id"])
     event_uuid = str(uuid4())
@@ -59,7 +66,7 @@ def ensure_event_id() -> int:
         "location_id": location_id,
         "title": "Evento Auto (tests)",
         "event_type": "full",
-        "status": "planned",
+        "status": "open",
         "required_counts": 1,
         "is_active": True,
     }).execute()
@@ -77,12 +84,19 @@ def ensure_zone_id() -> int:
         .execute()
     )
     if resp.data:
-        # tenta achar uma zona cujo event_id pertença à company
+        # tenta achar uma zona cujo event_id pertence a company e nao esteja finalized
         for z in resp.data:
-            ev = sb.table("inventory_events").select("company_id").eq("id", z["event_id"]).limit(1).execute()
-            if ev.data and int(ev.data[0]["company_id"]) == TEST_COMPANY_ID:
-                return int(z["id"])
-
+            ev = (
+                sb.table("inventory_events")
+                .select("company_id, status")
+                .eq("id", z["event_id"])
+                .limit(1)
+                .execute()
+            )
+            if ev.data:
+                row = ev.data[0]
+                if int(row["company_id"]) == TEST_COMPANY_ID and row.get("status") != "finalized":
+                    return int(z["id"])
     # cria
     zone_uuid = str(uuid4())
     event_id = ensure_event_id()
@@ -204,7 +218,14 @@ def test_inventory_items_push_update():
     }).execute()
 
     user = FakeCurrentUser(company_server_id=TEST_COMPANY_ID, db_user_id=TEST_USER_ID)
-    handler.update(payload={"qty_counted": 9}, record_uuid=record_uuid, user=user)
+    handler.update(
+        payload={
+            "qty_counted": 9,
+            "client_updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+        record_uuid=record_uuid,
+        user=user,
+    )
 
     try:
         resp = sb.table("inventory_items").select("qty_counted").eq("uuid", record_uuid).execute()
@@ -239,10 +260,9 @@ def test_inventory_items_push_soft_delete():
 
     user = FakeCurrentUser(company_server_id=TEST_COMPANY_ID, db_user_id=TEST_USER_ID)
 
-    handler.delete(payload={}, record_uuid=record_uuid, user=user)
-
     try:
-        resp = sb.table("inventory_items").select("deleted_at").eq("uuid", record_uuid).execute()
-        assert resp.data and resp.data[0]["deleted_at"] is not None
+        handler.delete(payload={}, record_uuid=record_uuid, user=user)
+    except RuntimeError as exc:
+        assert "inventory_items nao suportam delete via sync" in str(exc)
     finally:
         cleanup(record_uuid)

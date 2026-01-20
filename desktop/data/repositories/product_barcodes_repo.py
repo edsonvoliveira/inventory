@@ -43,7 +43,6 @@ _PRODUCT_BARCODES_CFG = RepoConfig(
         "is_active",
         "created_at",
         "updated_at",
-        "deleted_at",
         "synced",
         "synced_at",
         "source",

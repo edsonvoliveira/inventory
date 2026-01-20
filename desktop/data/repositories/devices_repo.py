@@ -48,7 +48,6 @@ _DEVICES_CFG = RepoConfig(
         "is_blocked",
         "created_at",
         "updated_at",
-        "deleted_at",
         "source",
     ),
 )

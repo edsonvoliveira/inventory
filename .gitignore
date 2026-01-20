@@ -29,6 +29,7 @@ Thumbs.db
 
 # --- Secrets / Env vars ---
 .env
+.user_test
 
 # --- developer files ---
 z_files/

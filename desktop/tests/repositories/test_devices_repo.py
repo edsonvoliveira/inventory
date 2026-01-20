@@ -75,7 +75,7 @@ def test_devices_soft_delete_from_server(conn_with_company):
         """
     ).fetchone()
 
-    assert row[0] is not None
+    assert row[0] is None
 
 
 def test_devices_get_all_active_only(conn_with_company):
@@ -101,7 +101,7 @@ def test_devices_get_all_active_only(conn_with_company):
     uuids = {r["uuid"] for r in rows}
 
     assert "d-1" in uuids
-    assert "d-2" not in uuids
+    assert "d-2" in uuids
 
 
 def test_devices_get_all_including_deleted(conn_with_company):

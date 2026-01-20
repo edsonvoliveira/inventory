@@ -50,13 +50,14 @@ def open_form_dialog(
     return dlg
 
 
-def action_button(icon: str, color: str, on_click):
+def action_button(icon: str, color: str, on_click, disabled: bool = False):
     return ft.ElevatedButton(
         content=ft.Row(
             [ft.Icon(name=icon, color=color)],
             alignment=ft.MainAxisAlignment.SPACE_AROUND,
         ),
-        on_click=on_click,
+        on_click=None if disabled else on_click,
+        disabled=disabled,
     )
 
 

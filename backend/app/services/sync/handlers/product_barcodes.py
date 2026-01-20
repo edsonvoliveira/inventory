@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.services.sync.handlers.base import BaseSyncHandler
+from app.services.sync.handlers._helpers import record_exists_by_uuid, should_apply_lww, resolve_fk_id
 from app.clients.supabase_client import get_supabase_service_client
 from app.core.user_context import UserContext
 
@@ -58,10 +59,18 @@ class ProductBarcodeSyncHandler(BaseSyncHandler):
     # ---------------------------
     def insert(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
+        if record_exists_by_uuid(sb, self.table_name, record_uuid):
+            return
 
-        product_id = payload.get("product_id", payload.get("product_server_id"))
-        if product_id is None:
-            raise RuntimeError("product_id ausente ou invalido")
+        product_id = resolve_fk_id(
+            sb,
+            table_name="products",
+            record_id=payload.get("product_id", payload.get("product_server_id")),
+            record_uuid=payload.get("product_uuid"),
+            company_id=user.company_server_id,
+            require_active=True,
+            field="product_id",
+        )
         data = {
             "uuid": record_uuid,
             "company_id": user.company_server_id,
@@ -78,6 +87,15 @@ class ProductBarcodeSyncHandler(BaseSyncHandler):
     # ---------------------------
     def update(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
+        if not should_apply_lww(sb, self.table_name, record_uuid, payload.get("client_updated_at")):
+            return
+
+        self._reject_unknown_fields(payload, allowed_fields=[
+            "barcode",
+            "description",
+            "is_active",
+            "client_updated_at",
+        ])
 
         update_data = {}
 

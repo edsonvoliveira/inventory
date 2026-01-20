@@ -17,3 +17,4 @@ class FakeCurrentUser(UserContext):
     db_user_id: int
     email: str = "e2e@test.local"
     is_admin: bool = False
+    role: str = "manager"

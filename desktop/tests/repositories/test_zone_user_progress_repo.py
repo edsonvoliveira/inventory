@@ -15,6 +15,8 @@ Responsabilities:
 - Verifies correct handling of zone user progress data
 """
 
+import pytest
+
 from desktop.data.repositories.zone_user_progress_repo import ZoneUserProgressRepo
 
 
@@ -71,19 +73,8 @@ def test_zone_user_progress_soft_delete(conn_with_company):
         "count_type": "primary",
     })
 
-    repo.soft_delete(uuid)
-
-    row = conn_with_company.execute(
-        """
-        SELECT deleted_at, synced
-        FROM zone_user_progress_local
-        WHERE uuid = ?
-        """,
-        (uuid,),
-    ).fetchone()
-
-    assert row[0] is not None
-    assert row[1] == 0
+    with pytest.raises(RuntimeError):
+        repo.soft_delete(uuid)
 
 
 def test_zone_user_progress_restore(conn_with_company):
@@ -95,20 +86,8 @@ def test_zone_user_progress_restore(conn_with_company):
         "count_type": "primary",
     })
 
-    repo.soft_delete(uuid)
-    repo.restore(uuid)
-
-    row = conn_with_company.execute(
-        """
-        SELECT deleted_at, synced
-        FROM zone_user_progress_local
-        WHERE uuid = ?
-        """,
-        (uuid,),
-    ).fetchone()
-
-    assert row[0] is None
-    assert row[1] == 0
+    with pytest.raises(RuntimeError):
+        repo.restore(uuid)
 
 
 def test_zone_user_progress_get_all_active_only(conn_with_company):
@@ -125,13 +104,11 @@ def test_zone_user_progress_get_all_active_only(conn_with_company):
         "count_type": "audit",
     })
 
-    repo.soft_delete(uuid_deleted)
-
     rows = repo.get_all()
     uuids = {r["uuid"] for r in rows}
 
     assert uuid_active in uuids
-    assert uuid_deleted not in uuids
+    assert uuid_deleted in uuids
 
 
 def test_zone_user_progress_get_all_including_deleted(conn_with_company):
@@ -147,8 +124,6 @@ def test_zone_user_progress_get_all_including_deleted(conn_with_company):
         "user_server_id": 2,
         "count_type": "audit",
     })
-
-    repo.soft_delete(uuid_deleted)
 
     rows = repo.get_all(active_only=False)
     uuids = {r["uuid"] for r in rows}
@@ -182,6 +157,7 @@ def test_zone_user_progress_upsert_many(conn_with_company):
             "zone_server_id": 10,
             "user_server_id": 1,
             "count_type": "primary",
+            "started_at": "2025-01-01T10:00:00Z",
             "is_finished": 1,
             "synced": 1,
             "source": "server",

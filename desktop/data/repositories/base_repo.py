@@ -78,8 +78,8 @@ class BaseRepo:
     # --------------------------------------------------
     def get_all(self, active_only: bool = True):
         sql = f"SELECT * FROM {self.cfg.table}"
-        if active_only and self.cfg.deleted_at_col:
-            sql += f" WHERE {self.cfg.deleted_at_col} IS NULL"
+        if active_only and self.cfg.active_col:
+            sql += f" WHERE {self.cfg.active_col} = 1"
         cur = self.conn.execute(sql)
         cols = [c[0] for c in cur.description]
         return [dict(zip(cols, row)) for row in cur.fetchall()]
@@ -168,66 +168,8 @@ class BaseRepo:
         self._commit()
         self._close()
 
-    def soft_delete(self, uuid: str):
-        if not self.cfg.deleted_at_col:
-            raise RuntimeError("Soft delete não suportado")
-
-        now = self._now()
-        updates: dict[str, Any] = {self.cfg.deleted_at_col: now}
-
-        if self.cfg.active_col:
-            updates[self.cfg.active_col] = 0
-        if self.cfg.updated_at_col:
-            updates[self.cfg.updated_at_col] = now
-        if self.cfg.synced_col:
-            updates[self.cfg.synced_col] = 0
-        if self.cfg.synced_at_col:
-            updates[self.cfg.synced_at_col] = None
-        if self.cfg.source_col:
-            updates[self.cfg.source_col] = "desktop"
-
-        set_sql = ", ".join(f"{k}=?" for k in updates)
-        self.conn.execute(
-            f"UPDATE {self.cfg.table} SET {set_sql} WHERE {self.cfg.uuid_col}=?",
-            tuple(updates.values()) + (uuid,),
-        )
-
-        self._enqueue_outbox("delete", uuid, updates)
-        self._commit()
-        self._close()
-
-    def restore(self, uuid: str):
-        if not self.cfg.deleted_at_col:
-            raise RuntimeError("Restore não suportado para esta entidade")
-
-        now = self._now()
-        updates: dict[str, Any] = {
-            self.cfg.deleted_at_col: None,
-        }
-
-        if self.cfg.active_col:
-            updates[self.cfg.active_col] = 1
-        if self.cfg.updated_at_col:
-            updates[self.cfg.updated_at_col] = now
-        if self.cfg.synced_col:
-            updates[self.cfg.synced_col] = 0
-        if self.cfg.synced_at_col:
-            updates[self.cfg.synced_at_col] = None
-        if self.cfg.source_col:
-            updates[self.cfg.source_col] = "desktop"
-
-        set_sql = ", ".join(f"{k}=?" for k in updates)
-        self.conn.execute(
-            f"UPDATE {self.cfg.table} SET {set_sql} WHERE {self.cfg.uuid_col}=?",
-            tuple(updates.values()) + (uuid,),
-        )
-
-        self._enqueue_outbox("update", uuid, updates)
-        self._commit()
-        self._close()
-
     # --------------------------------------------------
-    # SYNC PULL (SERVER → LOCAL)
+    # SYNC PULL (SERVER -> LOCAL)
     # --------------------------------------------------
     def upsert_many(self, rows: list[Mapping[str, Any]]) -> int:
         if not rows:
@@ -251,6 +193,61 @@ class BaseRepo:
         self._commit()
         self._close()
         return count
+
+    
+    def soft_delete(self, uuid: str):
+        if not self.cfg.active_col:
+            raise RuntimeError("Soft delete nao suportado")
+
+        now = self._now()
+        updates: dict[str, Any] = {}
+
+        updates[self.cfg.active_col] = 0
+        if self.cfg.updated_at_col:
+            updates[self.cfg.updated_at_col] = now
+        if self.cfg.synced_col:
+            updates[self.cfg.synced_col] = 0
+        if self.cfg.synced_at_col:
+            updates[self.cfg.synced_at_col] = None
+        if self.cfg.source_col:
+            updates[self.cfg.source_col] = "desktop"
+
+        set_sql = ", ".join(f"{k}=?" for k in updates)
+        self.conn.execute(
+            f"UPDATE {self.cfg.table} SET {set_sql} WHERE {self.cfg.uuid_col}=?",
+            tuple(updates.values()) + (uuid,),
+        )
+
+        self._enqueue_outbox("delete", uuid, updates)
+        self._commit()
+        self._close()
+
+    def restore(self, uuid: str):
+        if not self.cfg.active_col:
+            raise RuntimeError("Restore nao suportado para esta entidade")
+
+        now = self._now()
+        updates: dict[str, Any] = {}
+
+        updates[self.cfg.active_col] = 1
+        if self.cfg.updated_at_col:
+            updates[self.cfg.updated_at_col] = now
+        if self.cfg.synced_col:
+            updates[self.cfg.synced_col] = 0
+        if self.cfg.synced_at_col:
+            updates[self.cfg.synced_at_col] = None
+        if self.cfg.source_col:
+            updates[self.cfg.source_col] = "desktop"
+
+        set_sql = ", ".join(f"{k}=?" for k in updates)
+        self.conn.execute(
+            f"UPDATE {self.cfg.table} SET {set_sql} WHERE {self.cfg.uuid_col}=?",
+            tuple(updates.values()) + (uuid,),
+        )
+
+        self._enqueue_outbox("update", uuid, updates)
+        self._commit()
+        self._close()
 
     # --------------------------------------------------
     # HARD DELETE (ADMIN)

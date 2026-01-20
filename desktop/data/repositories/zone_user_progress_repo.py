@@ -47,7 +47,6 @@ _ZONE_USER_PROGRESS_CFG = RepoConfig(
         "items_counted",
         "qty_total",
         "device_id",
-        "deleted_at",
         "synced",
         "synced_at",
         "source",
@@ -57,3 +56,32 @@ _ZONE_USER_PROGRESS_CFG = RepoConfig(
 class ZoneUserProgressRepo(BaseRepo):
     def __init__(self, conn=None):
         super().__init__(_ZONE_USER_PROGRESS_CFG, conn)
+
+    def _zone_is_closed(self, zone_server_id: int | None) -> bool:
+        if zone_server_id is None:
+            return False
+        row = self.conn.execute(
+            """
+            SELECT count_status, lock_status
+            FROM zones_local
+            WHERE server_id = ?
+            """,
+            (zone_server_id,),
+        ).fetchone()
+        if not row:
+            return False
+        count_status, lock_status = row
+        return count_status in {"finished", "locked"} or lock_status == "locked"
+
+    def update(self, uuid: str, data: dict):
+        record = self.get_by_uuid(uuid)
+        zone_server_id = record.get("zone_server_id") if record else None
+        if self._zone_is_closed(zone_server_id):
+            raise RuntimeError("zone_user_progress append-only: zona fechada")
+        return super().update(uuid, data)
+
+    def soft_delete(self, uuid: str):
+        raise RuntimeError("zone_user_progress append-only: delete nao permitido")
+
+    def restore(self, uuid: str):
+        raise RuntimeError("zone_user_progress append-only: restore nao permitido")

@@ -36,10 +36,9 @@ def replace_all(rows: list[dict]) -> None:
                 count_status,
                 lock_status,
                 is_active,
-                updated_at,
-                deleted_at
+                updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 r["uuid"],
@@ -52,7 +51,6 @@ def replace_all(rows: list[dict]) -> None:
                 r.get("lock_status"),
                 r.get("is_active", 1),
                 r.get("updated_at"),
-                r.get("deleted_at"),
             ),
         )
     conn.commit()
@@ -74,12 +72,12 @@ def upsert_many(rows: list[dict]) -> None:
             count_status,
             lock_status,
             is_active,
-            updated_at,
-            deleted_at
+            updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(server_id) DO UPDATE SET
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(uuid) DO UPDATE SET
             uuid=excluded.uuid,
+            server_id=excluded.server_id,
             event_uuid=excluded.event_uuid,
             event_server_id=excluded.event_server_id,
             name=excluded.name,
@@ -87,8 +85,7 @@ def upsert_many(rows: list[dict]) -> None:
             count_status=excluded.count_status,
             lock_status=excluded.lock_status,
             is_active=excluded.is_active,
-            updated_at=excluded.updated_at,
-            deleted_at=excluded.deleted_at
+            updated_at=excluded.updated_at
     """
     for r in rows:
         conn.execute(
@@ -104,7 +101,6 @@ def upsert_many(rows: list[dict]) -> None:
                 r.get("lock_status"),
                 r.get("is_active", 1),
                 r.get("updated_at"),
-                r.get("deleted_at"),
             ),
         )
     conn.commit()

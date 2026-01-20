@@ -26,6 +26,7 @@ class CurrentUser:
     email: str | None
     db_user_id: int
     company_server_id: int
+    role: str
 
 
 async def get_current_user(
@@ -59,7 +60,7 @@ async def get_current_user(
 
     user_resp = (
         sb.table("users")
-        .select("id, company_id")
+        .select("id, company_id, role")
         .eq("supabase_auth_id", auth_uid)
         .limit(1)
         .execute()
@@ -83,6 +84,7 @@ async def get_current_user(
 
     raw_user_id = row.get("id")
     raw_company_id = row.get("company_id")
+    raw_role = row.get("role")
 
     if not isinstance(raw_user_id, (int, str)):
         raise HTTPException(
@@ -96,6 +98,11 @@ async def get_current_user(
             detail="company_id inválido do usuário",
         )
 
+    if not isinstance(raw_role, str) or not raw_role:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="role invalida do usuario",
+        )
     db_user_id = int(raw_user_id)
     company_server_id = int(raw_company_id)
 
@@ -104,4 +111,5 @@ async def get_current_user(
         email=email,
         db_user_id=db_user_id,
         company_server_id=company_server_id,
+        role=raw_role,
     )

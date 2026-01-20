@@ -1,6 +1,5 @@
 # mobile_push_smoke.py
 
-import json
 import os
 from datetime import datetime, timezone
 
@@ -32,9 +31,9 @@ def main() -> None:
     set_meta("bootstrap_done", "false")
 
     build_services().bootstrap.run()
-    last_pull_at = get_meta("last_pull_at")
-    if not last_pull_at:
-        raise SystemExit("Bootstrap executado, mas last_pull_at vazio.")
+    last_sync = get_meta(f"last_server_sync_at:{company_id}") or get_meta("last_pull_at")
+    if not last_sync:
+        raise SystemExit("Bootstrap executado, mas last_server_sync_at vazio.")
 
     conn = get_connection()
     zone = conn.execute(
@@ -67,22 +66,6 @@ def main() -> None:
 
     accepted, failed = build_services().sync_push.run()
     print(f"push accepted={accepted} failed={failed}")
-
-    build_services().sync_pull.run()
-
-    conn = get_connection()
-    conn.execute(
-        """
-        INSERT INTO outbox_local (table_name, operation, record_uuid, payload)
-        VALUES (?, ?, ?, ?)
-        """,
-        ("inventory_items", "delete", record_uuid, json.dumps({})),
-    )
-    conn.commit()
-    conn.close()
-
-    accepted, failed = build_services().sync_push.run()
-    print(f"delete push accepted={accepted} failed={failed}")
 
     build_services().sync_pull.run()
 

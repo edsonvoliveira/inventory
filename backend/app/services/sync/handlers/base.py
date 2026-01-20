@@ -48,6 +48,15 @@ class BaseSyncHandler(ABC):
     ) -> None:
         pass
 
+    # ---------------------------
+    # Helpers
+    # ---------------------------
+    def _reject_unknown_fields(self, payload: Dict[str, Any], allowed_fields: list[str]) -> None:
+        unknown = set(payload.keys()) - set(allowed_fields)
+        if unknown:
+            fields = ", ".join(sorted(unknown))
+            raise RuntimeError(f"INVALID_FIELDS:{fields}")
+
     def delete(
         self,
         payload: Dict[str, Any],

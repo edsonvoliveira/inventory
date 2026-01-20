@@ -10,6 +10,7 @@ Responsibilities:
 import os
 import importlib
 from uuid import uuid4
+from datetime import datetime, timezone
 from datetime import datetime, timedelta, timezone
 
 from app.clients.supabase_client import get_supabase_service_client
@@ -48,7 +49,14 @@ def ensure_location_id() -> int:
 
 def ensure_event_id() -> int:
     sb = get_supabase_service_client()
-    resp = sb.table("inventory_events").select("id").eq("company_id", TEST_COMPANY_ID).limit(1).execute()
+    resp = (
+        sb.table("inventory_events")
+        .select("id, status")
+        .eq("company_id", TEST_COMPANY_ID)
+        .neq("status", "finalized")
+        .limit(1)
+        .execute()
+    )
     if resp.data:
         return int(resp.data[0]["id"])
 
@@ -60,7 +68,7 @@ def ensure_event_id() -> int:
         "location_id": location_id,
         "title": "Evento Auto (tests)",
         "event_type": "full",
-        "status": "planned",
+        "status": "open",
         "required_counts": 1,
         "is_active": True,
     }).execute()
@@ -147,7 +155,14 @@ def test_zones_push_update():
     }).execute()
 
     user = FakeCurrentUser(company_server_id=TEST_COMPANY_ID, db_user_id=TEST_USER_ID)
-    handler.update(payload={"name": "Zona Atualizada"}, record_uuid=record_uuid, user=user)
+    handler.update(
+        payload={
+            "name": "Zona Atualizada",
+            "client_updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+        record_uuid=record_uuid,
+        user=user,
+    )
 
     try:
         resp = sb.table("zones").select("name").eq("uuid", record_uuid).execute()

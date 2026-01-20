@@ -6,6 +6,7 @@ Responsibilities:
 """
 
 from desktop.core.result import Result
+from desktop.core.permissions import can_write_entity
 from desktop.data.repositories.inventory_event_targets_repo import InventoryEventTargetsRepo
 from desktop.utils.validation import parse_float
 
@@ -29,6 +30,8 @@ class InventoryEventTargetService:
         product_server_id: str | int | None,
         expected_qty: str | None,
     ) -> Result[None]:
+        if not can_write_entity("inventory_event_targets"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         if not event_server_id or not product_server_id:
             return Result(ok=False, message="Informacoes obrigatorias", error_code="VALIDATION_ERROR")
         qty = parse_float(expected_qty)
@@ -55,6 +58,8 @@ class InventoryEventTargetService:
         product_server_id: str | int | None,
         expected_qty: str | None,
     ) -> Result[None]:
+        if not can_write_entity("inventory_event_targets"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         if not event_server_id or not product_server_id:
             return Result(ok=False, message="Informacoes obrigatorias", error_code="VALIDATION_ERROR")
         qty = parse_float(expected_qty)
@@ -76,6 +81,8 @@ class InventoryEventTargetService:
         return Result(ok=True)
 
     def delete(self, uuid: str) -> Result[None]:
+        if not can_write_entity("inventory_event_targets"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         try:
             InventoryEventTargetsRepo().soft_delete(uuid)
         except Exception:

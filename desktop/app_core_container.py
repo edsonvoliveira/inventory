@@ -23,6 +23,8 @@ from desktop.adapters.repositories.locations_repo_adapter import LocationsRepoAd
 from desktop.adapters.repositories.zones_repo_adapter import ZonesRepoAdapter
 from desktop.adapters.repositories.inventory_events_repo_adapter import InventoryEventsRepoAdapter
 from desktop.adapters.repositories.inventory_event_targets_repo_adapter import InventoryEventTargetsRepoAdapter
+from desktop.adapters.repositories.inventory_items_repo_adapter import InventoryItemsRepoAdapter
+from desktop.adapters.repositories.zone_user_progress_repo_adapter import ZoneUserProgressRepoAdapter
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,8 @@ def build_services() -> AppCoreServices:
         zones=ZonesRepoAdapter(),
         inventory_events=InventoryEventsRepoAdapter(),
         inventory_event_targets=InventoryEventTargetsRepoAdapter(),
+        inventory_items=InventoryItemsRepoAdapter(),
+        zone_user_progress=ZoneUserProgressRepoAdapter(),
     )
 
     sync_pull = SyncPullService(
@@ -56,12 +60,14 @@ def build_services() -> AppCoreServices:
         session=session,
         app_meta_repo=app_meta,
         repos=pull_repos,
+        sync_state=DesktopSyncStateAdapter(),
     )
     sync_push = SyncPushService(
         http=http,
         session=session,
         outbox=DesktopOutboxAdapter(),
         sync_state=DesktopSyncStateAdapter(),
+        endpoint="/v1/sync/desktop/push",
     )
     bootstrap = BootstrapService(
         session=session,

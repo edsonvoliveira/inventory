@@ -76,7 +76,6 @@ def test_devices_push_insert_and_pull():
         "os": "windows",
         "app_version": "1.0",
         "last_sync_at": datetime.now(timezone.utc).isoformat(),
-        "is_blocked": False,
         "metadata": {"k": "v"},
     }
 
@@ -104,7 +103,14 @@ def test_devices_push_update():
     }).execute()
 
     user = FakeCurrentUser(company_server_id=TEST_COMPANY_ID, db_user_id=TEST_USER_ID)
-    handler.update(payload={"app_version": "2.0"}, record_uuid=record_uuid, user=user)
+    handler.update(
+        payload={
+            "app_version": "2.0",
+            "last_sync_at": (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat(),
+        },
+        record_uuid=record_uuid,
+        user=user,
+    )
 
     try:
         resp = sb.table("devices").select("app_version").eq("uuid", record_uuid).execute()
@@ -128,10 +134,9 @@ def test_devices_push_soft_delete_blocks_device():
     }).execute()
 
     user = FakeCurrentUser(company_server_id=TEST_COMPANY_ID, db_user_id=TEST_USER_ID)
-    handler.delete(payload={}, record_uuid=record_uuid, user=user)
-
     try:
-        resp = sb.table("devices").select("is_blocked").eq("uuid", record_uuid).execute()
-        assert resp.data and resp.data[0]["is_blocked"] is True
+        handler.delete(payload={}, record_uuid=record_uuid, user=user)
+    except RuntimeError as exc:
+        assert "DEVICE_BLOCK_CHANGE_FORBIDDEN" in str(exc)
     finally:
         cleanup(record_uuid)

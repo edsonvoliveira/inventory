@@ -133,7 +133,14 @@ def test_inventory_events_push_update():
     }).execute()
 
     user = FakeCurrentUser(company_server_id=TEST_COMPANY_ID, db_user_id=TEST_USER_ID)
-    handler.update(payload={"title": "Evento Atualizado"}, record_uuid=record_uuid, user=user)
+    handler.update(
+        payload={
+            "title": "Evento Atualizado",
+            "client_updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+        record_uuid=record_uuid,
+        user=user,
+    )
 
     try:
         resp = sb.table("inventory_events").select("title").eq("uuid", record_uuid).execute()

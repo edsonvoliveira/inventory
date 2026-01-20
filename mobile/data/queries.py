@@ -11,10 +11,11 @@ import sqlite3
 import threading
 import uuid
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from mobile.data.db.schema import SCHEMA_SQL, SCHEMA_VERSION
 from mobile.data.migrations import ensure_meta_table, get_schema_version, migrate_schema, set_schema_version
+from mobile.data.repositories import outbox_repo
 
 try:
     from config.settings import DB_PATH
@@ -111,6 +112,29 @@ def list_zones_for_event(event_id: int) -> List[Dict[str, Any]]:
         return [{"id": r[0], "event_id": r[1], "name": r[2]} for r in rows]
 
 
+def is_event_closed(event_id: int) -> bool:
+    with _lock, get_conn() as conn:
+        row = conn.execute(
+            "SELECT status FROM inventory_events_local WHERE server_id = ?",
+            (event_id,),
+        ).fetchone()
+        status = (row[0] if row else "") or ""
+        return status.lower() in {"closed", "finalized"}
+
+
+def is_zone_closed(zone_id: int) -> bool:
+    with _lock, get_conn() as conn:
+        row = conn.execute(
+            "SELECT count_status, lock_status FROM zones_local WHERE server_id = ?",
+            (zone_id,),
+        ).fetchone()
+        if not row:
+            return False
+        count_status = (row[0] or "").lower()
+        lock_status = (row[1] or "").lower()
+        return count_status in {"finished", "locked"} or lock_status == "locked"
+
+
 def list_products() -> List[Dict[str, Any]]:
     with _lock, get_conn() as conn:
         cur = conn.execute(
@@ -140,7 +164,7 @@ def add_local_inventory_item(
     is_new_product: int = 0,
     notes: Optional[str] = None,
 ):
-    ts = datetime.utcnow().isoformat()
+    ts = datetime.now(timezone.utc).isoformat()
     record_uuid = str(uuid.uuid4())
     event_uuid = _to_uuid(event_id)
     zone_uuid = _to_uuid(zone_id)
@@ -186,13 +210,7 @@ def add_local_inventory_item(
             "device_timestamp": ts,
             "source": "mobile",
         }
-        conn.execute(
-            """
-            INSERT INTO outbox_local (table_name, operation, record_uuid, payload)
-            VALUES (?, ?, ?, ?)
-            """,
-            ("inventory_items", "insert", record_uuid, json.dumps(payload)),
-        )
+        outbox_repo.add("inventory_items", "insert", record_uuid, payload)
         conn.commit()
 
 

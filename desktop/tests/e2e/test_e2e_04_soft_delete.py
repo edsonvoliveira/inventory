@@ -47,7 +47,6 @@ def test_e2e_04_soft_delete(e2e_env):
         product = repo.get_by_uuid(record_uuid)
 
         assert product["is_active"] == 0
-        assert product["deleted_at"] is not None
         assert product["synced"] == 1
 
     finally:

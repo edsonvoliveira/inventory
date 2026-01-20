@@ -28,7 +28,8 @@ def test_e2e_03_pull_incremental(e2e_env):
         if get_meta("bootstrap_done", conn) != "1":
             build_services().bootstrap.run()
 
-        last_pull = get_meta("last_pull_at", conn)
+        key = f"last_server_sync_at:{e2e_env.company_server_id}"
+        last_pull = get_meta(key, conn)
         assert last_pull
 
         # ACT

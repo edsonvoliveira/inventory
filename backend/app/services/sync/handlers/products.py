@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.services.sync.handlers.base import BaseSyncHandler
+from app.services.sync.handlers._helpers import record_exists_by_uuid, should_apply_lww, resolve_fk_id
 from app.clients.supabase_client import get_supabase_service_client
 from app.core.user_context import UserContext
 
@@ -63,10 +64,22 @@ class ProductSyncHandler(BaseSyncHandler):
         user: UserContext,
     ) -> None:
         sb = get_supabase_service_client()
+        if record_exists_by_uuid(sb, self.table_name, record_uuid):
+            return
 
         category_id = payload.get("category_id", payload.get("category_server_id"))
         if category_id == "":
             category_id = None
+        if category_id is not None:
+            category_id = resolve_fk_id(
+                sb,
+                table_name="product_categories",
+                record_id=category_id,
+                record_uuid=payload.get("category_uuid"),
+                company_id=user.company_server_id,
+                require_active=True,
+                field="category_id",
+            )
 
         data = {
             "uuid": record_uuid,
@@ -78,7 +91,7 @@ class ProductSyncHandler(BaseSyncHandler):
             "uom_base": payload["uom_base"],
             "uom_inventory": payload["uom_inventory"],
             "conversion_factor": payload.get("conversion_factor", 1),
-            "system_qty": payload.get("system_qty", 0),
+            "system_qty": 0,
             "cost_price": payload.get("cost_price"),
             "is_sensitive": payload.get("is_sensitive", False),
             "serial_number_enabled": payload.get("serial_number_enabled", False),
@@ -97,21 +110,44 @@ class ProductSyncHandler(BaseSyncHandler):
         user: UserContext,
     ) -> None:
         sb = get_supabase_service_client()
+        if not should_apply_lww(sb, self.table_name, record_uuid, payload.get("client_updated_at")):
+            return
+
+        self._reject_unknown_fields(payload, allowed_fields=[
+            "name",
+            "description",
+            "category_id",
+            "category_server_id",
+            "uom_base",
+            "uom_inventory",
+            "conversion_factor",
+            "cost_price",
+            "is_sensitive",
+            "serial_number_enabled",
+            "is_active",
+            "client_updated_at",
+        ])
 
         update_data = {}
 
         category_id = payload.get("category_id", payload.get("category_server_id"))
         if category_id is not None and category_id != "":
-            update_data["category_id"] = category_id
+            update_data["category_id"] = resolve_fk_id(
+                sb,
+                table_name="product_categories",
+                record_id=category_id,
+                record_uuid=payload.get("category_uuid"),
+                company_id=user.company_server_id,
+                require_active=True,
+                field="category_id",
+            )
 
         allowed_fields = [
-            "sku",
             "name",
             "description",
             "uom_base",
             "uom_inventory",
             "conversion_factor",
-            "system_qty",
             "cost_price",
             "is_sensitive",
             "serial_number_enabled",

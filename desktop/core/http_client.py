@@ -36,11 +36,14 @@ def _build_url(path: str) -> str:
     return f"{_base_url()}{path}"
 
 
-def _headers(jwt_token: str) -> dict[str, str]:
-    return {
+def _headers(jwt_token: str, extra_headers: Optional[dict[str, str]] = None) -> dict[str, str]:
+    headers = {
         "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json",
     }
+    if extra_headers:
+        headers.update(extra_headers)
+    return headers
 
 
 def get(
@@ -48,13 +51,14 @@ def get(
     *,
     jwt_token: str,
     params: Optional[dict[str, Any]] = None,
+    headers: Optional[dict[str, str]] = None,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
     url = _build_url(path)
     try:
         resp = requests.get(
             url,
-            headers=_headers(jwt_token),
+            headers=_headers(jwt_token, headers),
             params=params,
             timeout=timeout,
         )
@@ -76,13 +80,14 @@ def post(
     *,
     jwt_token: str,
     json_body: dict[str, Any],
+    headers: Optional[dict[str, str]] = None,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
     url = _build_url(path)
     try:
         resp = requests.post(
             url,
-            headers=_headers(jwt_token),
+            headers=_headers(jwt_token, headers),
             json=json_body,
             timeout=timeout,
         )

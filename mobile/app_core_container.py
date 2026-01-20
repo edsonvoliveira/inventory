@@ -23,6 +23,8 @@ from mobile.adapters.repositories.locations_repo_adapter import LocationsRepoAda
 from mobile.adapters.repositories.zones_repo_adapter import ZonesRepoAdapter
 from mobile.adapters.repositories.inventory_events_repo_adapter import InventoryEventsRepoAdapter
 from mobile.adapters.repositories.inventory_event_targets_repo_adapter import InventoryEventTargetsRepoAdapter
+from mobile.adapters.repositories.inventory_items_repo_adapter import InventoryItemsRepoAdapter
+from mobile.adapters.repositories.zone_user_progress_repo_adapter import ZoneUserProgressRepoAdapter
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,8 @@ def build_services() -> AppCoreServices:
         zones=ZonesRepoAdapter(),
         inventory_events=InventoryEventsRepoAdapter(),
         inventory_event_targets=InventoryEventTargetsRepoAdapter(),
+        inventory_items=InventoryItemsRepoAdapter(),
+        zone_user_progress=ZoneUserProgressRepoAdapter(),
     )
 
     sync_pull = SyncPullService(
@@ -56,12 +60,14 @@ def build_services() -> AppCoreServices:
         session=session,
         app_meta_repo=app_meta,
         repos=pull_repos,
+        sync_state=MobileSyncStateAdapter(),
     )
     sync_push = SyncPushService(
         http=http,
         session=session,
         outbox=MobileOutboxAdapter(),
         sync_state=MobileSyncStateAdapter(),
+        endpoint="/v1/sync/mobile/push",
     )
     bootstrap = BootstrapService(
         session=session,

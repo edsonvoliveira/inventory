@@ -66,7 +66,7 @@ def _company_by_id(conn, company_id: int):
         """
         SELECT id, server_id, name, vat_number
         FROM companies_local
-        WHERE id = ? AND deleted_at IS NULL
+        WHERE id = ? AND is_active = 1
         """,
         (company_id,),
     ).fetchone()
@@ -74,7 +74,7 @@ def _company_by_id(conn, company_id: int):
 
 def _company_id_by_server_id(conn, company_server_id: int) -> Optional[int]:
     row = conn.execute(
-        "SELECT id FROM companies_local WHERE server_id = ? AND deleted_at IS NULL",
+        "SELECT id FROM companies_local WHERE server_id = ? AND is_active = 1",
         (company_server_id,),
     ).fetchone()
     return row[0] if row else None
@@ -105,7 +105,7 @@ def company_get_all() -> List[Dict[str, Any]]:
             """
             SELECT id, name, vat_number AS nif
             FROM companies_local
-            WHERE deleted_at IS NULL
+            WHERE is_active = 1
             ORDER BY id
             """
         )
@@ -119,7 +119,7 @@ def company_get(id: int):
             """
             SELECT id, name, vat_number AS nif
             FROM companies_local
-            WHERE id = ? AND deleted_at IS NULL
+            WHERE id = ? AND is_active = 1
             """,
             (id,),
         )
@@ -139,7 +139,7 @@ def company_update(id: int, name: str, nif: Optional[str]):
             """
             UPDATE companies_local
             SET name = ?, vat_number = ?, updated_at = ?, synced = 0, synced_at = NULL, source = 'desktop'
-            WHERE id = ? AND deleted_at IS NULL
+            WHERE id = ? AND is_active = 1
             """,
             (name, nif, now, id),
         )
@@ -152,10 +152,10 @@ def company_delete(id: int):
         conn.execute(
             """
             UPDATE companies_local
-            SET deleted_at = ?, is_active = 0, updated_at = ?, synced = 0, synced_at = NULL, source = 'desktop'
-            WHERE id = ? AND deleted_at IS NULL
+            SET is_active = 0, updated_at = ?, synced = 0, synced_at = NULL, source = 'desktop'
+            WHERE id = ? AND is_active = 1
             """,
-            (now, now, id),
+            (now, id),
         )
         conn.commit()
 
@@ -204,7 +204,7 @@ def role_delete(id: int):
             return
         role_name = row[0]
         in_use = conn.execute(
-            "SELECT COUNT(1) FROM users_local WHERE role = ? AND deleted_at IS NULL",
+            "SELECT COUNT(1) FROM users_local WHERE role = ? AND is_active = 1",
             (role_name,),
         ).fetchone()
         if in_use and in_use[0] > 0:
@@ -246,14 +246,14 @@ def user_get_all():
         role_rows = conn.execute("SELECT id, name FROM roles_local").fetchall()
         role_name_to_id = {r[1]: r[0] for r in role_rows}
         company_rows = conn.execute(
-            "SELECT id, server_id FROM companies_local WHERE deleted_at IS NULL"
+            "SELECT id, server_id FROM companies_local WHERE is_active = 1"
         ).fetchall()
         company_server_to_id = {c[1]: c[0] for c in company_rows}
         cur = conn.execute(
             """
             SELECT id, email, role, company_server_id, is_active
             FROM users_local
-            WHERE deleted_at IS NULL
+            WHERE is_active = 1
             ORDER BY id
             """
         )
@@ -276,7 +276,7 @@ def user_get(id: int):
             """
             SELECT id, email, role, company_server_id, is_active
             FROM users_local
-            WHERE id = ? AND deleted_at IS NULL
+            WHERE id = ? AND is_active = 1
             """,
             (id,),
         )
@@ -306,7 +306,7 @@ def user_update(id: int, email: str, role_id: int, company_id: int, is_active: i
             UPDATE users_local
             SET email = ?, role = ?, company_server_id = ?, is_active = ?,
                 updated_at = ?, source = 'desktop'
-            WHERE id = ? AND deleted_at IS NULL
+            WHERE id = ? AND is_active = 1
             """,
             (email, role_name, company_server_id, is_active, now, id),
         )
@@ -319,10 +319,10 @@ def user_delete(id: int):
         conn.execute(
             """
             UPDATE users_local
-            SET deleted_at = ?, is_active = 0, updated_at = ?, source = 'desktop'
-            WHERE id = ? AND deleted_at IS NULL
+            SET is_active = 0, updated_at = ?, source = 'desktop'
+            WHERE id = ? AND is_active = 1
             """,
-            (now, now, id),
+            (now, id),
         )
         conn.commit()
 
@@ -353,14 +353,14 @@ def location_create(name: str, company_id: int):
 def location_get_all():
     with _get_conn() as conn:
         company_rows = conn.execute(
-            "SELECT id, server_id FROM companies_local WHERE deleted_at IS NULL"
+            "SELECT id, server_id FROM companies_local WHERE is_active = 1"
         ).fetchall()
         company_server_to_id = {c[1]: c[0] for c in company_rows}
         cur = conn.execute(
             """
             SELECT id, name, company_server_id
             FROM locations_local
-            WHERE deleted_at IS NULL
+            WHERE is_active = 1
             ORDER BY id
             """
         )
@@ -381,7 +381,7 @@ def location_get(id: int):
             """
             SELECT id, name, company_server_id
             FROM locations_local
-            WHERE id = ? AND deleted_at IS NULL
+            WHERE id = ? AND is_active = 1
             """,
             (id,),
         )
@@ -406,7 +406,7 @@ def location_update(id: int, name: str, company_id: int):
             UPDATE locations_local
             SET name = ?, code = ?, company_server_id = ?, updated_at = ?, synced = 0,
                 synced_at = NULL, source = 'desktop'
-            WHERE id = ? AND deleted_at IS NULL
+            WHERE id = ? AND is_active = 1
             """,
             (name, name, company_server_id, now, id),
         )
@@ -419,11 +419,11 @@ def location_delete(id: int):
         conn.execute(
             """
             UPDATE locations_local
-            SET deleted_at = ?, is_active = 0, updated_at = ?, synced = 0,
+            SET is_active = 0, updated_at = ?, synced = 0,
                 synced_at = NULL, source = 'desktop'
-            WHERE id = ? AND deleted_at IS NULL
+            WHERE id = ? AND is_active = 1
             """,
-            (now, now, id),
+            (now, id),
         )
         conn.commit()
 
@@ -479,14 +479,14 @@ def product_create(
 def product_get_all():
     with _get_conn() as conn:
         company_rows = conn.execute(
-            "SELECT id, server_id FROM companies_local WHERE deleted_at IS NULL"
+            "SELECT id, server_id FROM companies_local WHERE is_active = 1"
         ).fetchall()
         company_server_to_id = {c[1]: c[0] for c in company_rows}
         barcode_rows = conn.execute(
             """
             SELECT product_server_id, barcode
             FROM product_barcodes_local
-            WHERE deleted_at IS NULL
+            WHERE is_active = 1
             """
         ).fetchall()
         barcode_by_product = {b[0]: b[1] for b in barcode_rows}
@@ -494,7 +494,7 @@ def product_get_all():
             """
             SELECT id, server_id, sku, name, cost_price, uom_inventory, updated_at, company_server_id
             FROM products_local
-            WHERE deleted_at IS NULL
+            WHERE is_active = 1
             ORDER BY id
             """
         )
@@ -533,7 +533,7 @@ def product_get(id: int):
             """
             SELECT id, uuid, server_id, sku, name, cost_price, uom_inventory, updated_at, company_server_id
             FROM products_local
-            WHERE id = ? AND deleted_at IS NULL
+            WHERE id = ? AND is_active = 1
             """,
             (id,),
         )
@@ -555,7 +555,7 @@ def product_get(id: int):
             """
             SELECT barcode
             FROM product_barcodes_local
-            WHERE product_server_id = ? AND deleted_at IS NULL
+            WHERE product_server_id = ? AND is_active = 1
             LIMIT 1
             """,
             (product_server_id,),
@@ -579,7 +579,7 @@ def product_get_uuid_and_server_id(product_id: int) -> tuple[str | None, int | N
             """
             SELECT uuid, server_id
             FROM products_local
-            WHERE id = ? AND deleted_at IS NULL
+            WHERE id = ? AND is_active = 1
             """,
             (product_id,),
         ).fetchone()
@@ -594,7 +594,7 @@ def product_barcode_get_uuids_by_product_server_id(product_server_id: int) -> li
             """
             SELECT uuid
             FROM product_barcodes_local
-            WHERE product_server_id = ? AND deleted_at IS NULL
+            WHERE product_server_id = ? AND is_active = 1
             """,
             (product_server_id,),
         ).fetchall()
@@ -618,7 +618,7 @@ def product_update(
         company_server_id = company[1]
         now = last_updated or _now()
         product_row = conn.execute(
-            "SELECT server_id FROM products_local WHERE id = ? AND deleted_at IS NULL",
+            "SELECT server_id FROM products_local WHERE id = ? AND is_active = 1",
             (id,),
         ).fetchone()
         if not product_row:
@@ -629,7 +629,7 @@ def product_update(
             UPDATE products_local
             SET sku = ?, name = ?, cost_price = ?, uom_base = ?, uom_inventory = ?,
                 company_server_id = ?, updated_at = ?, synced = 0, synced_at = NULL, source = 'desktop'
-            WHERE id = ? AND deleted_at IS NULL
+            WHERE id = ? AND is_active = 1
             """,
             (
                 sku,
@@ -647,7 +647,7 @@ def product_update(
             existing = conn.execute(
                 """
                 SELECT id FROM product_barcodes_local
-                WHERE product_server_id = ? AND deleted_at IS NULL
+                WHERE product_server_id = ? AND is_active = 1
                 ORDER BY id
                 LIMIT 1
                 """,
@@ -688,11 +688,11 @@ def product_update(
             conn.execute(
                 """
                 UPDATE product_barcodes_local
-                SET deleted_at = ?, is_active = 0, updated_at = ?, synced = 0,
+                SET is_active = 0, updated_at = ?, synced = 0,
                     synced_at = NULL, source = 'desktop'
-                WHERE product_server_id = ? AND deleted_at IS NULL
+                WHERE product_server_id = ? AND is_active = 1
                 """,
-                (now, now, product_server_id),
+                (now, product_server_id),
             )
         conn.commit()
 
@@ -701,7 +701,7 @@ def product_delete(id: int):
     with _get_conn() as conn:
         now = _now()
         product_row = conn.execute(
-            "SELECT server_id FROM products_local WHERE id = ? AND deleted_at IS NULL",
+            "SELECT server_id FROM products_local WHERE id = ? AND is_active = 1",
             (id,),
         ).fetchone()
         if not product_row:
@@ -710,20 +710,20 @@ def product_delete(id: int):
         conn.execute(
             """
             UPDATE products_local
-            SET deleted_at = ?, is_active = 0, updated_at = ?, synced = 0,
+            SET is_active = 0, updated_at = ?, synced = 0,
                 synced_at = NULL, source = 'desktop'
-            WHERE id = ? AND deleted_at IS NULL
+            WHERE id = ? AND is_active = 1
             """,
-            (now, now, id),
+            (now, id),
         )
         conn.execute(
             """
             UPDATE product_barcodes_local
-            SET deleted_at = ?, is_active = 0, updated_at = ?, synced = 0,
+            SET is_active = 0, updated_at = ?, synced = 0,
                 synced_at = NULL, source = 'desktop'
-            WHERE product_server_id = ? AND deleted_at IS NULL
+            WHERE product_server_id = ? AND is_active = 1
             """,
-            (now, now, product_server_id),
+            (now, product_server_id),
         )
         conn.commit()
 

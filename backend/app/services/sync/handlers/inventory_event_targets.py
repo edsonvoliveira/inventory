@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.services.sync.handlers.base import BaseSyncHandler
+from app.services.sync.handlers._helpers import record_exists_by_uuid, should_apply_lww, resolve_fk_id
 from app.clients.supabase_client import get_supabase_service_client
 from app.core.user_context import UserContext
 
@@ -28,7 +29,6 @@ class InventoryEventTargetSyncHandler(BaseSyncHandler):
     ) -> List[Dict[str, Any]]:
 
         sb = get_supabase_service_client()
-
         query = (
             sb.table(self.table_name)
             .select("*")
@@ -81,40 +81,27 @@ class InventoryEventTargetSyncHandler(BaseSyncHandler):
     # ---------------------------
     def insert(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
+        if record_exists_by_uuid(sb, self.table_name, record_uuid):
+            return
+        event_id = resolve_fk_id(
+            sb,
+            table_name="inventory_events",
+            record_id=payload.get("event_id", payload.get("event_server_id")),
+            record_uuid=payload.get("event_uuid"),
+            company_id=user.company_server_id,
+            require_active=True,
+            field="event_id",
+        )
 
-        event_id = payload.get("event_id", payload.get("event_server_id"))
-        if event_id is None:
-            event_uuid = payload.get("event_uuid")
-            if not isinstance(event_uuid, str) or not event_uuid:
-                raise RuntimeError("event_uuid ausente ou invalido")
-
-            event_resp = (
-                sb.table("inventory_events")
-                .select("id")
-                .eq("uuid", event_uuid)
-                .limit(1)
-                .execute()
-            )
-
-            event_row = self._first_row_as_dict(event_resp, "Evento nao encontrado para target")
-            event_id = self._row_id_as_int(event_row, "ID invalido do evento")
-
-        product_id = payload.get("product_id", payload.get("product_server_id"))
-        if product_id is None:
-            product_uuid = payload.get("product_uuid")
-            if not isinstance(product_uuid, str) or not product_uuid:
-                raise RuntimeError("product_uuid ausente ou invalido")
-
-            product_resp = (
-                sb.table("products")
-                .select("id")
-                .eq("uuid", product_uuid)
-                .limit(1)
-                .execute()
-            )
-
-            product_row = self._first_row_as_dict(product_resp, "Produto nao encontrado para target")
-            product_id = self._row_id_as_int(product_row, "ID invalido do produto")
+        product_id = resolve_fk_id(
+            sb,
+            table_name="products",
+            record_id=payload.get("product_id", payload.get("product_server_id")),
+            record_uuid=payload.get("product_uuid"),
+            company_id=user.company_server_id,
+            require_active=True,
+            field="product_id",
+        )
 
         expected_qty = payload.get("expected_qty", 0)
 
@@ -130,6 +117,16 @@ class InventoryEventTargetSyncHandler(BaseSyncHandler):
         sb.table("inventory_event_targets").insert(data).execute()
 
     def update(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
+        sb = get_supabase_service_client()
+        if not should_apply_lww(sb, self.table_name, record_uuid, payload.get("client_updated_at")):
+            return
+
+        self._reject_unknown_fields(payload, allowed_fields=[
+            "expected_qty",
+            "is_active",
+            "client_updated_at",
+        ])
+
         update_data: Dict[str, Any] = {}
 
         if "expected_qty" in payload:

@@ -76,16 +76,15 @@ def test_product_categories_soft_delete(conn_with_company):
 
     row = conn_with_company.execute(
         """
-        SELECT deleted_at, is_active, synced
+        SELECT is_active, synced
         FROM product_categories_local
         WHERE uuid = ?
         """,
         (uuid,),
     ).fetchone()
 
-    assert row[0] is not None
+    assert row[0] == 0
     assert row[1] == 0
-    assert row[2] == 0
 
     last_op = conn_with_company.execute(
         "SELECT operation FROM outbox_local ORDER BY id DESC LIMIT 1"
@@ -107,16 +106,15 @@ def test_product_categories_restore(conn_with_company):
 
     row = conn_with_company.execute(
         """
-        SELECT deleted_at, is_active, synced
+        SELECT is_active, synced
         FROM product_categories_local
         WHERE uuid = ?
         """,
         (uuid,),
     ).fetchone()
 
-    assert row[0] is None
-    assert row[1] == 1
-    assert row[2] == 0
+    assert row[0] == 1
+    assert row[1] == 0
 
 
 def test_product_categories_get_all_active_only(conn_with_company):
@@ -175,7 +173,7 @@ def test_product_categories_get_by_uuid(conn_with_company):
 
     assert row is not None
     assert row["uuid"] == uuid
-    assert row["deleted_at"] is not None
+    assert row["is_active"] == 0
 
 
 def test_product_categories_upsert_many(conn_with_company):

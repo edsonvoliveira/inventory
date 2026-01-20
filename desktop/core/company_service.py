@@ -6,6 +6,7 @@ Responsibilities:
 """
 
 from desktop.core.result import Result
+from desktop.core.permissions import can_write_entity
 from desktop.data.repository import (
     company_create,
     company_delete,
@@ -29,6 +30,8 @@ class CompanyService:
             )
 
     def create(self, name: str, nif: str | None) -> Result[dict | None]:
+        if not can_write_entity("companies"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         if not is_required(name):
             return Result(ok=False, message="Nome obrigatorio.", error_code="VALIDATION_ERROR")
         try:
@@ -44,6 +47,8 @@ class CompanyService:
             )
 
     def update(self, company_id: int, name: str, nif: str | None) -> Result[dict | None]:
+        if not can_write_entity("companies"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         if not is_required(name):
             return Result(ok=False, message="Nome obrigatorio.", error_code="VALIDATION_ERROR")
         try:
@@ -57,6 +62,8 @@ class CompanyService:
             )
 
     def delete(self, company_id: int) -> Result[None]:
+        if not can_write_entity("companies"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         try:
             company_delete(company_id)
             return Result(ok=True)

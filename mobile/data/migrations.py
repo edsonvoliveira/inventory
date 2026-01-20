@@ -12,6 +12,10 @@ from typing import Callable
 def ensure_meta_table(conn) -> None:
     conn.execute("CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)")
 
+def _column_exists(conn, table: str, column: str) -> bool:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return any(r[1] == column for r in rows)
+
 
 def get_schema_version(conn) -> int:
     ensure_meta_table(conn)
@@ -70,10 +74,74 @@ def _migrate_to_4(conn) -> None:
     )
 
 
+def _migrate_to_5(conn) -> None:
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_companies_local_updated_at ON companies_local(updated_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_users_local_updated_at ON users_local(updated_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_devices_local_updated_at ON devices_local(updated_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_locations_local_updated_at ON locations_local(updated_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_events_local_updated_at ON inventory_events_local(updated_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_zones_local_updated_at ON zones_local(updated_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_targets_local_updated_at ON inventory_event_targets_local(updated_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_product_categories_local_updated_at ON product_categories_local(updated_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_products_local_updated_at ON products_local(updated_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_barcodes_local_updated_at ON product_barcodes_local(updated_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_items_local_updated_at ON inventory_items_local(updated_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS ix_progress_local_updated_at ON zone_user_progress_local(updated_at)"
+    )
+
+
+def _migrate_to_6(conn) -> None:
+    conn.execute(
+        "UPDATE inventory_events_local SET required_counts = 1 WHERE required_counts IS NULL"
+    )
+    conn.execute(
+        "UPDATE zones_local SET count_status = 'not_started' WHERE count_status IS NULL"
+    )
+    conn.execute(
+        "UPDATE inventory_event_targets_local SET expected_qty = 0 WHERE expected_qty IS NULL"
+    )
+
+def _migrate_to_7(conn) -> None:
+    if not _column_exists(conn, "inventory_events_local", "status"):
+        conn.execute(
+            "ALTER TABLE inventory_events_local ADD COLUMN status TEXT NOT NULL DEFAULT 'planned'"
+        )
+    if not _column_exists(conn, "zones_local", "count_status"):
+        conn.execute(
+            "ALTER TABLE zones_local ADD COLUMN count_status TEXT NOT NULL DEFAULT 'not_started'"
+        )
+
+
 MIGRATIONS: dict[int, Callable] = {
     2: _migrate_to_2,
     3: _migrate_to_3,
     4: _migrate_to_4,
+    5: _migrate_to_5,
+    6: _migrate_to_6,
+    7: _migrate_to_7,
 }
 
 

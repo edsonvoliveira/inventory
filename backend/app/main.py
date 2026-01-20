@@ -7,6 +7,8 @@ Responsibilities:
 - Expose the ASGI app for the server.
 """
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -15,6 +17,9 @@ from app.api.system import router as system_router
 from app.api.auth import router as auth_router
 from app.api.sync import router as sync_router
 
+
+log_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
+logging.getLogger().setLevel(log_level)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

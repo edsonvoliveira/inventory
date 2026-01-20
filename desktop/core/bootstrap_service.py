@@ -15,9 +15,9 @@ class BootstrapService:
     Bootstrap wrapper delegating to app_core.
     """
 
-    def run(self) -> None:
+    def run(self, *, correlation_id: str | None = None) -> None:
         services = build_services()
-        services.bootstrap.run()
+        services.bootstrap.run(correlation_id=correlation_id)
 
 
 def run_bootstrap(jwt_token: str) -> bool:

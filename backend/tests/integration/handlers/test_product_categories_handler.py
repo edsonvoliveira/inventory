@@ -10,6 +10,7 @@ Responsibilities:
 import os
 import importlib
 from uuid import uuid4
+from datetime import datetime, timezone
 from datetime import datetime, timedelta, timezone
 
 from app.clients.supabase_client import get_supabase_service_client
@@ -105,7 +106,14 @@ def test_product_categories_push_update():
 
     user = FakeCurrentUser(company_server_id=TEST_COMPANY_ID, db_user_id=TEST_USER_ID)
 
-    handler.update(payload={"name": "Categoria Atualizada"}, record_uuid=record_uuid, user=user)
+    handler.update(
+        payload={
+            "name": "Categoria Atualizada",
+            "client_updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+        record_uuid=record_uuid,
+        user=user,
+    )
 
     try:
         resp = sb.table("product_categories").select("name").eq("uuid", record_uuid).execute()

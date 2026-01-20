@@ -31,10 +31,9 @@ def replace_all(rows: list[dict]) -> None:
                 is_sensitive,
                 serial_number_enabled,
                 is_active,
-                updated_at,
-                deleted_at
+                updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 r["uuid"],
@@ -52,7 +51,6 @@ def replace_all(rows: list[dict]) -> None:
                 r.get("serial_number_enabled", 0),
                 r.get("is_active", 1),
                 r.get("updated_at"),
-                r.get("deleted_at"),
             ),
         )
     conn.commit()
@@ -79,12 +77,12 @@ def upsert_many(rows: list[dict]) -> None:
             is_sensitive,
             serial_number_enabled,
             is_active,
-            updated_at,
-            deleted_at
+            updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(server_id) DO UPDATE SET
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(uuid) DO UPDATE SET
             uuid=excluded.uuid,
+            server_id=excluded.server_id,
             company_server_id=excluded.company_server_id,
             category_server_id=excluded.category_server_id,
             sku=excluded.sku,
@@ -97,8 +95,7 @@ def upsert_many(rows: list[dict]) -> None:
             is_sensitive=excluded.is_sensitive,
             serial_number_enabled=excluded.serial_number_enabled,
             is_active=excluded.is_active,
-            updated_at=excluded.updated_at,
-            deleted_at=excluded.deleted_at
+            updated_at=excluded.updated_at
     """
     for r in rows:
         conn.execute(
@@ -119,7 +116,6 @@ def upsert_many(rows: list[dict]) -> None:
                 r.get("serial_number_enabled", 0),
                 r.get("is_active", 1),
                 r.get("updated_at"),
-                r.get("deleted_at"),
             ),
         )
     conn.commit()

@@ -9,6 +9,7 @@ Responsibilities:
 from desktop.app_core_container import build_services
 from desktop.core.http_client import get
 from desktop.core.sync.apply_pull_payload import apply_pull_payload
+from desktop.core.session_service import SessionService
 from desktop.data.repositories.app_meta_repo import get_meta
 from desktop.data.db.connection import get_connection
 
@@ -33,7 +34,7 @@ def pull_once(jwt_token: str) -> int:
 
     conn = get_connection()
     try:
-        since = get_meta("last_pull_at", conn)
+        since = get_meta("last_server_sync_at", conn) or get_meta("last_pull_at", conn)
         params = {}
         if since:
             params["since"] = since
@@ -44,7 +45,8 @@ def pull_once(jwt_token: str) -> int:
             params=params,
         )
 
-        apply_pull_payload(payload, conn)
+        company_id = SessionService.get_company_server_id()
+        apply_pull_payload(payload, conn, company_id=company_id)
         return sum(len(v) for v in payload.values() if isinstance(v, list))
     finally:
         conn.close()

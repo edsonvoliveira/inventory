@@ -54,10 +54,6 @@ def ensure_location_id() -> int:
 
 def ensure_event_id() -> int:
     sb = get_supabase_service_client()
-    resp = sb.table("inventory_events").select("id").eq("company_id", TEST_COMPANY_ID).limit(1).execute()
-    if resp.data:
-        return int(resp.data[0]["id"])
-
     event_uuid = str(uuid4())
     location_id = ensure_location_id()
     sb.table("inventory_events").insert({
@@ -66,20 +62,16 @@ def ensure_event_id() -> int:
         "location_id": location_id,
         "title": "Evento Auto (tests)",
         "event_type": "full",
-        "status": "planned",
+        "status": "open",
         "required_counts": 1,
         "is_active": True,
     }).execute()
-    resp2 = sb.table("inventory_events").select("id").eq("uuid", event_uuid).limit(1).execute()
-    return int(resp2.data[0]["id"])
+    resp = sb.table("inventory_events").select("id").eq("uuid", event_uuid).limit(1).execute()
+    return int(resp.data[0]["id"])
 
 
 def ensure_product_id() -> int:
     sb = get_supabase_service_client()
-    resp = sb.table("products").select("id").eq("company_id", TEST_COMPANY_ID).limit(1).execute()
-    if resp.data:
-        return int(resp.data[0]["id"])
-
     prod_uuid = str(uuid4())
     sb.table("products").insert({
         "uuid": prod_uuid,
@@ -90,8 +82,8 @@ def ensure_product_id() -> int:
         "uom_inventory": "UN",
         "is_active": True,
     }).execute()
-    resp2 = sb.table("products").select("id").eq("uuid", prod_uuid).limit(1).execute()
-    return int(resp2.data[0]["id"])
+    resp = sb.table("products").select("id").eq("uuid", prod_uuid).limit(1).execute()
+    return int(resp.data[0]["id"])
 
 
 def cleanup(uuid: str):
@@ -204,7 +196,14 @@ def test_inventory_event_targets_push_update():
     }).execute()
 
     user = FakeCurrentUser(company_server_id=TEST_COMPANY_ID, db_user_id=TEST_USER_ID)
-    handler.update(payload={"expected_qty": 99}, record_uuid=record_uuid, user=user)
+    handler.update(
+        payload={
+            "expected_qty": 99,
+            "client_updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+        record_uuid=record_uuid,
+        user=user,
+    )
 
     try:
         resp = sb.table("inventory_event_targets").select("expected_qty").eq("uuid", record_uuid).execute()

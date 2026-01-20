@@ -6,6 +6,7 @@ Responsibilities:
 """
 
 from desktop.core.result import Result
+from desktop.core.permissions import can_write_entity
 from desktop.data.repositories.product_categories_repo import ProductCategoriesRepo
 from desktop.utils.validation import is_required
 
@@ -24,6 +25,8 @@ class ProductCategoryService:
         return Result(ok=True, data=data)
 
     def create(self, code: str, name: str, description: str | None) -> Result[None]:
+        if not can_write_entity("product_categories"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         if not is_required(code) or not is_required(name):
             return Result(ok=False, message="Informacoes obrigatorias", error_code="VALIDATION_ERROR")
         try:
@@ -43,6 +46,8 @@ class ProductCategoryService:
         return Result(ok=True)
 
     def update(self, uuid: str, code: str, name: str, description: str | None) -> Result[None]:
+        if not can_write_entity("product_categories"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         if not is_required(code) or not is_required(name):
             return Result(ok=False, message="Informacoes obrigatorias", error_code="VALIDATION_ERROR")
         try:
@@ -63,6 +68,8 @@ class ProductCategoryService:
         return Result(ok=True)
 
     def delete(self, uuid: str) -> Result[None]:
+        if not can_write_entity("product_categories"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         try:
             ProductCategoriesRepo().soft_delete(uuid)
         except Exception:

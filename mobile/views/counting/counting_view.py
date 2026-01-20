@@ -13,6 +13,8 @@ from mobile.core.navigation import ROUTES
 from mobile.data.queries import (
     add_local_inventory_item,
     count_distinct_products_for_zone,
+    is_event_closed,
+    is_zone_closed,
     list_counted_product_ids,
     list_pending_inventory_items,
     list_products,
@@ -32,6 +34,12 @@ def counting_page_content(page: ft.Page, state: AppState):
     if not zone_id or not event_id:
         toast(page, "Nenhuma zona/evento selecionada!", success=False)
         page.go(ROUTES["dashboard"])
+        return ft.Column([])
+
+    is_read_only = is_zone_closed(zone_id) or is_event_closed(event_id)
+    if is_read_only:
+        toast(page, "Zona/Evento fechado. Contagem bloqueada.", success=False)
+        page.go(ROUTES["zone_details"])
         return ft.Column([])
 
     text_item_count = ft.Text("Itens Contados: 0", size=16, weight=ft.FontWeight.BOLD)

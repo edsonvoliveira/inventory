@@ -128,6 +128,18 @@ class OutboxRepo:
             (new_attempts, status, error, id_),
         )
 
+    def retry_failed(self) -> int:
+        cur = self.conn.execute(
+            """
+            UPDATE outbox_local
+            SET status = 'pending',
+                last_error = NULL,
+                attempts = 0
+            WHERE status IN ('failed', 'error') OR last_error IS NOT NULL
+            """
+        )
+        return cur.rowcount
+
     # --------------------------------------------------
     # Administração
     # --------------------------------------------------

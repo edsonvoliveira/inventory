@@ -11,8 +11,27 @@ from typing import Iterable
 
 from mobile.data.db.connection import get_connection
 
+_ALLOWED_MOBILE_ENTITIES = {"inventory_items", "zone_user_progress", "devices"}
+_ZONE_USER_PROGRESS_ALLOWLIST = {
+    "zone_id",
+    "user_id",
+    "count_type",
+    "started_at",
+    "finished_at",
+    "is_finished",
+    "items_counted",
+    "qty_total",
+    "device_id",
+    "device_timestamp",
+    "source",
+}
+
 
 def add(table_name: str, operation: str, record_uuid: str, payload: dict) -> int:
+    if table_name not in _ALLOWED_MOBILE_ENTITIES:
+        raise RuntimeError("outbox entity not allowed for mobile")
+    if table_name == "zone_user_progress":
+        payload = {k: v for k, v in payload.items() if k in _ZONE_USER_PROGRESS_ALLOWLIST}
     conn = get_connection()
     cur = conn.execute(
         """

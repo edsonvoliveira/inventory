@@ -12,11 +12,20 @@ from desktop.core.session_service import SessionService
 from desktop.core.sync_service import SyncService
 from desktop.data.db.connection import get_connection
 from desktop.data.repositories.app_meta_repo import get_meta
+from desktop.data.repositories.outbox_repo import OutboxRepo
 
 
 def _status_dot(ok: bool) -> ft.Container:
     color = ft.Colors.GREEN_400 if ok else ft.Colors.RED_400
     return ft.Container(width=10, height=10, bgcolor=color, border_radius=10)
+
+
+def _parse_error_code(raw: str | None) -> str:
+    if not raw:
+        return "unknown"
+    if ":" in raw:
+        return raw.split(":", 1)[0]
+    return raw
 
 
 def _fetch_context():
@@ -32,7 +41,7 @@ def _fetch_context():
             row = conn.execute(
                 """
                 SELECT name FROM companies_local
-                WHERE server_id = ? AND deleted_at IS NULL
+                WHERE server_id = ? AND is_active = 1
                 """,
                 (company_server_id,),
             ).fetchone()
@@ -43,7 +52,7 @@ def _fetch_context():
             row = conn.execute(
                 """
                 SELECT email, role FROM users_local
-                WHERE server_id = ? AND deleted_at IS NULL
+                WHERE server_id = ? AND is_active = 1
                 """,
                 (user_server_id,),
             ).fetchone()
@@ -59,8 +68,21 @@ def _fetch_context():
             "SELECT COUNT(1) FROM outbox_local WHERE status = 'pending'"
         ).fetchone()[0]
         sync_errors = conn.execute(
-            "SELECT COUNT(1) FROM outbox_local WHERE status = 'failed' OR last_error IS NOT NULL"
+            """
+            SELECT COUNT(1)
+            FROM outbox_local
+            WHERE status IN ('failed', 'error') OR last_error IS NOT NULL
+            """
         ).fetchone()[0]
+        error_rows = conn.execute(
+            """
+            SELECT table_name, operation, record_uuid, last_error
+            FROM outbox_local
+            WHERE status IN ('failed', 'error') OR last_error IS NOT NULL
+            ORDER BY id DESC
+            LIMIT 8
+            """
+        ).fetchall()
         zones_blocked = conn.execute(
             """
             SELECT COUNT(1) FROM zones_local
@@ -83,6 +105,16 @@ def _fetch_context():
             "last_push": last_push,
             "pending": pending,
             "sync_errors": sync_errors,
+            "error_rows": [
+                {
+                    "entity": r[0],
+                    "operation": r[1],
+                    "record_uuid": r[2],
+                    "error_code": _parse_error_code(r[3]),
+                    "error": r[3] or "",
+                }
+                for r in error_rows
+            ],
             "conflicts": 0,
             "zones_blocked": zones_blocked,
             "events_delayed": events_delayed,
@@ -113,6 +145,39 @@ def render_dashboard_view(page: ft.Page, on_refresh):
         page.update()
         on_refresh(None)
 
+    def _retry_errors(e):
+        try:
+            conn = get_connection()
+            try:
+                retried = OutboxRepo(conn).retry_failed()
+                conn.commit()
+            finally:
+                conn.close()
+            if retried:
+                SyncService().run()
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"Reenvio iniciado para {retried} itens."),
+                    bgcolor=ft.Colors.GREEN_400,
+                    open=True,
+                    duration=2500,
+                )
+            else:
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text("Nao ha itens para reenvio."),
+                    bgcolor=ft.Colors.BLUE_400,
+                    open=True,
+                    duration=2000,
+                )
+        except Exception:
+            page.snack_bar = ft.SnackBar(
+                content=ft.Text("Nao foi possivel reenviar os itens."),
+                bgcolor=ft.Colors.RED_400,
+                open=True,
+                duration=2000,
+            )
+        page.update()
+        on_refresh(None)
+
     info = ft.Column(
         [
             ft.Text("Dashboard", size=28, weight=ft.FontWeight.BOLD),
@@ -122,9 +187,31 @@ def render_dashboard_view(page: ft.Page, on_refresh):
             ft.Text(f"Ultimo Pull: {data['last_pull']}"),
             ft.Text(f"Ultimo Push: {data['last_push']}"),
             ft.Text(f"Pendencias de sincronizacao: {data['pending']}"),
-            ft.ElevatedButton("Sync Now", icon=ft.Icons.SYNC, on_click=_sync_now),
+            ft.Row(
+                [
+                    ft.ElevatedButton("Sync Now", icon=ft.Icons.SYNC, on_click=_sync_now),
+                    ft.OutlinedButton("Retry erros", icon=ft.Icons.REFRESH, on_click=_retry_errors),
+                ],
+                spacing=8,
+            ),
         ],
         spacing=6,
+    )
+
+    error_rows = data.get("error_rows", [])
+    error_list = (
+        ft.Column(
+            [
+                ft.Text(
+                    f"{row['entity']} {row['operation']} ({row['record_uuid']}) - {row['error_code']}",
+                    size=12,
+                )
+                for row in error_rows
+            ],
+            spacing=4,
+        )
+        if error_rows
+        else ft.Text("Sem erros recentes.")
     )
 
     alerts = ft.Column(
@@ -134,6 +221,8 @@ def render_dashboard_view(page: ft.Page, on_refresh):
             ft.Row([_status_dot(data["conflicts"] == 0), ft.Text("Conflitos")], spacing=8),
             ft.Row([_status_dot(data["zones_blocked"] == 0), ft.Text("Zonas bloqueadas")], spacing=8),
             ft.Row([_status_dot(data["events_delayed"] == 0), ft.Text("Eventos em atraso")], spacing=8),
+            ft.Text("Erros recentes (entidade/operacao/codigo)", size=12, weight=ft.FontWeight.BOLD),
+            error_list,
         ],
         spacing=6,
     )

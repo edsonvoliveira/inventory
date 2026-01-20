@@ -29,7 +29,7 @@ from desktop.data.repositories.companies_repo import CompaniesRepo
 from desktop.data.repositories.app_meta_repo import set_meta
 
 
-def apply_pull_payload(payload: dict, conn) -> None:
+def apply_pull_payload(payload: dict, conn, *, company_id: int | None = None) -> None:
     """
     Aplica o payload de sync pull no SQLite local.
 
@@ -57,9 +57,20 @@ def apply_pull_payload(payload: dict, conn) -> None:
         if not rows:
             continue
 
-        repo = repo_cls(conn)
-        repo.upsert_many(rows)
+        sanitized_rows = []
+        for row in rows:
+            if isinstance(row, dict):
+                row = dict(row)
+                row.pop("deleted_at", None)
+                if "server_id" not in row and "id" in row:
+                    row["server_id"] = row["id"]
+            sanitized_rows.append(row)
 
-    server_ts = payload.get("server_ts")
-    if server_ts:
-        set_meta("last_pull_at", server_ts, conn)
+        repo = repo_cls(conn)
+        repo.upsert_many(sanitized_rows)
+
+    server_now = payload.get("server_now") or payload.get("server_ts")
+    if server_now:
+        key = f"last_server_sync_at:{company_id}" if company_id else "last_server_sync_at"
+        set_meta(key, server_now, conn)
+        set_meta("last_pull_at", server_now, conn)

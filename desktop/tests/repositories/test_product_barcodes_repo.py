@@ -74,16 +74,15 @@ def test_product_barcodes_soft_delete(conn_with_company):
 
     row = conn_with_company.execute(
         """
-        SELECT deleted_at, is_active, synced
+        SELECT is_active, synced
         FROM product_barcodes_local
         WHERE uuid = ?
         """,
         (uuid,),
     ).fetchone()
 
-    assert row[0] is not None
+    assert row[0] == 0
     assert row[1] == 0
-    assert row[2] == 0
 
 
 def test_product_barcodes_restore(conn_with_company):
@@ -99,16 +98,15 @@ def test_product_barcodes_restore(conn_with_company):
 
     row = conn_with_company.execute(
         """
-        SELECT deleted_at, is_active, synced
+        SELECT is_active, synced
         FROM product_barcodes_local
         WHERE uuid = ?
         """,
         (uuid,),
     ).fetchone()
 
-    assert row[0] is None
-    assert row[1] == 1
-    assert row[2] == 0
+    assert row[0] == 1
+    assert row[1] == 0
 
 
 def test_product_barcodes_get_all_active_only(conn_with_company):

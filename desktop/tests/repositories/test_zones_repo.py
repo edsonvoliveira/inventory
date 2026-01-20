@@ -75,16 +75,15 @@ def test_zones_soft_delete(conn_with_company):
 
     row = conn_with_company.execute(
         """
-        SELECT deleted_at, is_active, synced
+        SELECT is_active, synced
         FROM zones_local
         WHERE uuid = ?
         """,
         (uuid,),
     ).fetchone()
 
-    assert row[0] is not None
+    assert row[0] == 0
     assert row[1] == 0
-    assert row[2] == 0
 
     last_op = conn_with_company.execute(
         "SELECT operation FROM outbox_local ORDER BY id DESC LIMIT 1"
@@ -106,16 +105,15 @@ def test_zones_restore(conn_with_company):
 
     row = conn_with_company.execute(
         """
-        SELECT deleted_at, is_active, synced
+        SELECT is_active, synced
         FROM zones_local
         WHERE uuid = ?
         """,
         (uuid,),
     ).fetchone()
 
-    assert row[0] is None
-    assert row[1] == 1
-    assert row[2] == 0
+    assert row[0] == 1
+    assert row[1] == 0
 
 
 def test_zones_get_all_active_only(conn_with_company):
@@ -174,7 +172,7 @@ def test_zones_get_by_uuid(conn_with_company):
 
     assert row is not None
     assert row["uuid"] == uuid
-    assert row["deleted_at"] is not None
+    assert row["is_active"] == 0
 
 
 def test_zones_upsert_many(conn_with_company):

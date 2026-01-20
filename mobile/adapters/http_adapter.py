@@ -17,12 +17,13 @@ class MobileHttpAdapter(HttpPort):
         path: str,
         token: str,
         params: Optional[Mapping[str, Any]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Mapping[str, Any]:
         url = _build_url(path)
         try:
             resp = requests.get(
                 url,
-                headers=_headers(token),
+                headers=_headers(token, headers),
                 params=dict(params or {}),
                 timeout=DEFAULT_TIMEOUT,
             )
@@ -42,12 +43,13 @@ class MobileHttpAdapter(HttpPort):
         path: str,
         token: str,
         json: Optional[Mapping[str, Any]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Mapping[str, Any]:
         url = _build_url(path)
         try:
             resp = requests.post(
                 url,
-                headers=_headers(token),
+                headers=_headers(token, headers),
                 json=dict(json or {}),
                 timeout=DEFAULT_TIMEOUT,
             )
@@ -76,8 +78,11 @@ def _build_url(path: str) -> str:
     return f"{_base_url()}{path}"
 
 
-def _headers(jwt_token: str) -> dict[str, str]:
-    return {
+def _headers(jwt_token: str, extra_headers: Optional[Mapping[str, str]] = None) -> dict[str, str]:
+    headers = {
         "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json",
     }
+    if extra_headers:
+        headers.update(dict(extra_headers))
+    return headers

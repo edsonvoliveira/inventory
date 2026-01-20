@@ -39,7 +39,6 @@ _USERS_CFG = RepoConfig(
         "is_active",
         "created_at",
         "updated_at",
-        "deleted_at",
         "source",
     ),
 )
@@ -47,3 +46,14 @@ _USERS_CFG = RepoConfig(
 class UsersRepo(BaseRepo):
     def __init__(self, conn=None):
         super().__init__(_USERS_CFG, conn)
+
+    def get_by_server_id(self, server_id: int) -> dict | None:
+        cur = self.conn.execute(
+            "SELECT * FROM users_local WHERE server_id = ?",
+            (server_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        cols = [c[0] for c in cur.description]
+        return dict(zip(cols, row))

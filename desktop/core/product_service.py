@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from desktop.core.result import Result
+from desktop.core.permissions import can_write_entity
 from desktop.core.strings import ERROR_INVALID_PRICE
 from desktop.data.repositories.product_barcodes_repo import ProductBarcodesRepo
 from desktop.data.repositories.products_repo import ProductsRepo
@@ -48,6 +49,8 @@ class ProductService:
         unit_cost_raw: str,
         unit_of_measure: str,
     ) -> Result[None]:
+        if not can_write_entity("products"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         if not is_required(sku) or not is_required(name):
             return Result(ok=False, message="Campos obrigatorios.", error_code="VALIDATION_ERROR")
         unit_cost = parse_float(unit_cost_raw)
@@ -90,6 +93,8 @@ class ProductService:
         unit_cost_raw: str,
         unit_of_measure: str,
     ) -> Result[None]:
+        if not can_write_entity("products"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         if not is_required(sku) or not is_required(name):
             return Result(ok=False, message="Campos obrigatorios.", error_code="VALIDATION_ERROR")
         unit_cost = parse_float(unit_cost_raw)
@@ -134,6 +139,8 @@ class ProductService:
         return Result(ok=True)
 
     def delete(self, product_id: int) -> Result[None]:
+        if not can_write_entity("products"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         try:
             product_uuid, product_server_id = product_get_uuid_and_server_id(product_id)
             if not product_uuid:

@@ -17,6 +17,14 @@ from mobile.data.repositories.app_meta_repo import get_meta
 from mobile.utils.ui import toast
 
 
+def _parse_error_code(raw: str | None) -> str:
+    if not raw:
+        return "unknown"
+    if ":" in raw:
+        return raw.split(":", 1)[0]
+    return raw
+
+
 def profile_content(page: ft.Page, state: AppState):
     auth_service = AuthService()
     prof = state.profile or {}
@@ -26,6 +34,22 @@ def profile_content(page: ft.Page, state: AppState):
         pending = conn.execute(
             "SELECT COUNT(1) FROM outbox_local WHERE status = 'pending'"
         ).fetchone()[0]
+        errors = conn.execute(
+            """
+            SELECT COUNT(1)
+            FROM outbox_local
+            WHERE status IN ('failed', 'error') OR last_error IS NOT NULL
+            """
+        ).fetchone()[0]
+        error_rows = conn.execute(
+            """
+            SELECT table_name, operation, record_uuid, last_error
+            FROM outbox_local
+            WHERE status IN ('failed', 'error') OR last_error IS NOT NULL
+            ORDER BY id DESC
+            LIMIT 5
+            """
+        ).fetchall()
     finally:
         conn.close()
     user_card = ft.Card(
@@ -86,6 +110,22 @@ def profile_content(page: ft.Page, state: AppState):
         elevation=2,
     )
 
+    error_list = (
+        ft.Column(
+            [
+                ft.Text(
+                    f"{row[0]} {row[1]} ({row[2]}) - {_parse_error_code(row[3])}",
+                    size=12,
+                    color=THEME["text_secondary"],
+                )
+                for row in error_rows
+            ],
+            spacing=4,
+        )
+        if error_rows
+        else ft.Text("Sem erros recentes.", size=12, color=THEME["text_secondary"])
+    )
+
     sync_card = ft.Card(
         ft.Container(
             ft.Column(
@@ -93,6 +133,9 @@ def profile_content(page: ft.Page, state: AppState):
                     ft.Text("Status de Sync", size=16),
                     ft.Text(f"Ultimo pull: {last_pull_at}", size=14, color=THEME["text_secondary"]),
                     ft.Text(f"Outbox pendente: {pending}", size=14, color=THEME["text_secondary"]),
+                    ft.Text(f"Erros de sync: {errors}", size=14, color=THEME["text_secondary"]),
+                    ft.Text("Erros recentes (entidade/operacao/codigo):", size=12),
+                    error_list,
                 ],
                 spacing=4,
             ),

@@ -53,6 +53,7 @@ class CompanySwitchService:
 
             # 2) Limpa flags de sync / bootstrap
             set_meta("bootstrap_done", "", conn)
+            set_meta("last_server_sync_at", "", conn)
             set_meta("last_pull_at", "", conn)
 
             # 3) Hard delete de todos os dados locais

@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 import flet as ft
 
 from desktop.core.ui_constants import ICON_ADD, ICON_DELETE, ICON_EDIT
+from desktop.core.permissions import can_write_entity
 from desktop.core.strings import (
     BTN_CREATE,
     BTN_SAVE,
@@ -31,6 +32,7 @@ def render_role_view(page: ft.Page, on_refresh):
     coluna = ft.Column(expand=True, spacing=10)
     list_view = ft.ListView(expand=True, spacing=8)
     roles = role_get_all()
+    can_manage = can_write_entity("roles")
 
     def criar_role(e):
         dlg_name = ft.TextField(label=FIELD_NAME, hint_text=HINT_ROLE_NAME, autofocus=True)
@@ -60,7 +62,12 @@ def render_role_view(page: ft.Page, on_refresh):
         ft.Row(
             [
                 ft.Text(ROLE_TITLE, size=28, weight=ft.FontWeight.BOLD, expand=1),
-                ft.ElevatedButton(f"{ROLE_ADD}  ", icon=ICON_ADD, on_click=criar_role),
+                ft.ElevatedButton(
+                    f"{ROLE_ADD}  ",
+                    icon=ICON_ADD,
+                    on_click=criar_role,
+                    disabled=not can_manage,
+                ),
             ],
             spacing=5,
         )
@@ -106,27 +113,32 @@ def render_role_view(page: ft.Page, on_refresh):
         theme = page.theme
         primary_color = (theme.color_scheme.primary if theme and theme.color_scheme else None) or ft.Colors.BLUE
         error_color = (theme.color_scheme.error if theme and theme.color_scheme else None) or ft.Colors.RED
+        actions = (
+            ft.Row(
+                [
+                    action_button(
+                        ICON_EDIT,
+                        primary_color,
+                        lambda e, role=role: abrir_edicao_role(role),
+                    ),
+                    action_button(
+                        ICON_DELETE,
+                        error_color,
+                        lambda e, id=role.get("id"): [role_delete(id), on_refresh(None)],
+                    ),
+                ],
+                spacing=4,
+                alignment=ft.MainAxisAlignment.END,
+            )
+            if can_manage
+            else ft.Text("-")
+        )
         row = ft.Row(
             [
                 _row_cell(str(role.get("id") or "-"), width=60),
                 _row_cell(role.get("name") or "-", expand=3),
                 ft.Container(
-                    content=ft.Row(
-                        [
-                            action_button(
-                                ICON_EDIT,
-                                primary_color,
-                                lambda e, role=role: abrir_edicao_role(role),
-                            ),
-                            action_button(
-                                ICON_DELETE,
-                                error_color,
-                                lambda e, id=role.get("id"): [role_delete(id), on_refresh(None)],
-                            ),
-                        ],
-                        spacing=4,
-                        alignment=ft.MainAxisAlignment.END,
-                    ),
+                    content=actions,
                     width=120,
                     padding=ft.padding.symmetric(vertical=4, horizontal=0),
                     alignment=ft.alignment.center_right,

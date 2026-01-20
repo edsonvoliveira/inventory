@@ -9,6 +9,7 @@ class HttpPort(Protocol):
         path: str,
         token: str,
         params: Optional[Mapping[str, Any]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Mapping[str, Any]:
         ...
 
@@ -17,5 +18,6 @@ class HttpPort(Protocol):
         path: str,
         token: str,
         json: Optional[Mapping[str, Any]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Mapping[str, Any]:
         ...

@@ -13,3 +13,4 @@ from typing import Protocol
 class UserContext(Protocol):
     company_server_id: int
     db_user_id: int
+    role: str

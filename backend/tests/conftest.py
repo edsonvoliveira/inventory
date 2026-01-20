@@ -9,7 +9,21 @@ Responsibilities:
 #backend/tests/conftest.py
 
 import os
+import sys
+from pathlib import Path
+
 import pytest
+from dotenv import load_dotenv
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
+load_dotenv(BACKEND_DIR / ".env")
+user_env = BACKEND_DIR / ".user_test"
+if user_env.exists():
+    load_dotenv(user_env, override=True)
+
 from tests.helpers.test_user import FakeCurrentUser
 
 

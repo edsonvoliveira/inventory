@@ -158,6 +158,7 @@ def test_products_push_update():
 
     payload = {
         "name": "Produto Atualizado",
+        "client_updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
     handler.update(

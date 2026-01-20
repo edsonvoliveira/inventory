@@ -12,8 +12,10 @@ from datetime import datetime, timezone
 from typing import cast, Dict, Any, List, Optional
 
 from app.services.sync.handlers.base import BaseSyncHandler
+from app.services.sync.handlers._helpers import record_exists_by_uuid, should_apply_lww, resolve_fk_id, resolve_zone_id
 from app.clients.supabase_client import get_supabase_service_client
 from app.core.user_context import UserContext
+from app.services.sync.handlers._time import normalize_ts
 
 
 class InventoryItemSyncHandler(BaseSyncHandler):
@@ -71,8 +73,8 @@ class InventoryItemSyncHandler(BaseSyncHandler):
 
 
     # ---------------------------
-    # PUSH (INSERT)
-    # ---------------------------
+# PUSH (INSERT)
+# ---------------------------
     def insert(
         self,
         *,
@@ -81,22 +83,45 @@ class InventoryItemSyncHandler(BaseSyncHandler):
         user: UserContext,
     ) -> None:
         sb = get_supabase_service_client()
+        if record_exists_by_uuid(sb, self.table_name, record_uuid):
+            return
 
-        zone_id = payload.get("zone_id", payload.get("zone_server_id"))
-        if zone_id is None:
-            raise RuntimeError("zone_id ausente ou invalido")
+        zone_id = resolve_zone_id(
+            sb,
+            zone_id=payload.get("zone_id", payload.get("zone_server_id")),
+            zone_uuid=payload.get("zone_uuid"),
+            company_id=user.company_server_id,
+            field="zone_id",
+        )
 
         product_id = payload.get("product_id", payload.get("product_server_id"))
-        user_id = payload.get("user_id", payload.get("user_server_id", user.db_user_id))
-        if user_id is None:
-            raise RuntimeError("user_id ausente ou invalido")
+        if product_id or payload.get("product_uuid"):
+            product_id = resolve_fk_id(
+                sb,
+                table_name="products",
+                record_id=product_id,
+                record_uuid=payload.get("product_uuid"),
+                company_id=user.company_server_id,
+                require_active=True,
+                field="product_id",
+            )
+
+        user_id = resolve_fk_id(
+            sb,
+            table_name="users",
+            record_id=payload.get("user_id", payload.get("user_server_id", user.db_user_id)),
+            record_uuid=payload.get("user_uuid"),
+            company_id=user.company_server_id,
+            require_active=True,
+            field="user_id",
+        )
 
         insert_data = {
             "uuid": record_uuid,
             "zone_id": zone_id,
             "product_id": product_id,
             "qty_counted": payload["qty_counted"],
-            "device_timestamp": payload["device_timestamp"],
+            "device_timestamp": normalize_ts(payload.get("device_timestamp"), field="device_timestamp"),
             "source": payload.get("source", "mobile"),
             "user_id": int(user_id),
             "created_by_user_id": int(user_id),
@@ -104,41 +129,8 @@ class InventoryItemSyncHandler(BaseSyncHandler):
 
         resp = sb.table("inventory_items").insert(insert_data).execute()
 
-        if not isinstance(resp.data, list) or not resp.data:
-            raise RuntimeError("Falha ao inserir inventory_item")
-
-        rows = resp.data
-
-        if not isinstance(rows, list) or len(rows) == 0:
-            raise RuntimeError("Falha ao inserir inventory_item")
-
-        row = rows[0]
-
-        if not isinstance(row, dict) or "id" not in row:
-            raise RuntimeError("Resposta invalida do Supabase")
-
-        raw_id = row["id"]
-
-        if not isinstance(raw_id, (int, str)):
-            raise RuntimeError("ID invalido retornado")
-
-        item_id: int = int(raw_id)
-
-        if not isinstance(item_id, int):
-            raise RuntimeError("ID invalido do inventory_item")
-
-        sb.table("inventory_item_events").insert({
-            "inventory_item_id": item_id,
-            "action": "created",
-            "previous_qty": None,
-            "new_qty": insert_data["qty_counted"],
-            "user_id": int(user_id),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "notes": "Created via sync",
-        }).execute()
-
-    # ---------------------------
-    # PUSH (UPDATE)
+# ---------------------------
+# PUSH (UPDATE)
     # ---------------------------
     def update(
         self,
@@ -148,10 +140,18 @@ class InventoryItemSyncHandler(BaseSyncHandler):
         user: UserContext,
     ) -> None:
         sb = get_supabase_service_client()
+        if not should_apply_lww(sb, self.table_name, record_uuid, payload.get("client_updated_at")):
+            return
 
-        user_id = payload.get("user_id", payload.get("user_server_id", user.db_user_id))
-        if user_id is None:
-            raise RuntimeError("user_id ausente ou invalido")
+        user_id = resolve_fk_id(
+            sb,
+            table_name="users",
+            record_id=payload.get("user_id", payload.get("user_server_id", user.db_user_id)),
+            record_uuid=payload.get("user_uuid"),
+            company_id=user.company_server_id,
+            require_active=True,
+            field="user_id",
+        )
 
         existing = (
             sb.table("inventory_items")
@@ -188,6 +188,8 @@ class InventoryItemSyncHandler(BaseSyncHandler):
             "source",
         ]
 
+        self._reject_unknown_fields(payload, allowed_fields=allowed_fields + ["user_id", "user_server_id", "client_updated_at"])
+
         update_data = {
             k: payload[k]
             for k in allowed_fields
@@ -196,6 +198,12 @@ class InventoryItemSyncHandler(BaseSyncHandler):
 
         if not update_data:
             raise RuntimeError("Nenhum campo valido para update")
+
+        if "device_timestamp" in update_data:
+            update_data["device_timestamp"] = normalize_ts(
+                update_data["device_timestamp"],
+                field="device_timestamp",
+            )
 
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
 
@@ -209,7 +217,7 @@ class InventoryItemSyncHandler(BaseSyncHandler):
             "previous_qty": previous_qty,
             "new_qty": update_data.get("qty_counted", previous_qty),
             "user_id": int(user_id),
-            "timestamp": payload.get("device_timestamp")
+            "timestamp": update_data.get("device_timestamp")
                 or datetime.now(timezone.utc).isoformat(),
             "notes": "Updated via sync",
         }).execute()
@@ -223,9 +231,7 @@ class InventoryItemSyncHandler(BaseSyncHandler):
         record_uuid: str,
         user: UserContext,
     ) -> None:
-        sb = get_supabase_service_client()
+        raise RuntimeError("inventory_items nao suportam delete via sync")
 
-        sb.table("inventory_items").update({
-            "deleted_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("uuid", record_uuid).execute()
+
+

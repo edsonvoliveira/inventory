@@ -70,16 +70,15 @@ def test_inventory_events_soft_delete(conn_with_company):
 
     row = conn_with_company.execute(
         """
-        SELECT deleted_at, is_active, synced
+        SELECT is_active, synced
         FROM inventory_events_local
         WHERE uuid = ?
         """,
         (uuid,),
     ).fetchone()
 
-    assert row[0] is not None
+    assert row[0] == 0
     assert row[1] == 0
-    assert row[2] == 0
 
 
 def test_inventory_events_restore(conn_with_company):
@@ -96,16 +95,15 @@ def test_inventory_events_restore(conn_with_company):
 
     row = conn_with_company.execute(
         """
-        SELECT deleted_at, is_active, synced
+        SELECT is_active, synced
         FROM inventory_events_local
         WHERE uuid = ?
         """,
         (uuid,),
     ).fetchone()
 
-    assert row[0] is None
-    assert row[1] == 1
-    assert row[2] == 0
+    assert row[0] == 1
+    assert row[1] == 0
 
 
 def test_inventory_events_get_all_active_only(conn_with_company):
@@ -169,7 +167,7 @@ def test_inventory_events_get_by_uuid(conn_with_company):
 
     assert row is not None
     assert row["uuid"] == uuid
-    assert row["deleted_at"] is not None
+    assert row["is_active"] == 0
 
 
 def test_inventory_events_upsert_many(conn_with_company):
@@ -183,6 +181,7 @@ def test_inventory_events_upsert_many(conn_with_company):
             "location_server_id": 10,
             "title": "Evento Server",
             "status": "closed",
+            "required_counts": 1,
             "is_active": 1,
             "synced": 1,
             "source": "server",

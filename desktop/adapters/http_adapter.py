@@ -12,13 +12,25 @@ class DesktopHttpAdapter(HttpPort):
         path: str,
         token: str,
         params: Optional[Mapping[str, Any]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Mapping[str, Any]:
-        return http_client.get(path, jwt_token=token, params=dict(params or {}))
+        return http_client.get(
+            path,
+            jwt_token=token,
+            params=dict(params or {}),
+            headers=dict(headers or {}),
+        )
 
     def post(
         self,
         path: str,
         token: str,
         json: Optional[Mapping[str, Any]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Mapping[str, Any]:
-        return http_client.post(path, jwt_token=token, json_body=dict(json or {}))
+        return http_client.post(
+            path,
+            jwt_token=token,
+            json_body=dict(json or {}),
+            headers=dict(headers or {}),
+        )

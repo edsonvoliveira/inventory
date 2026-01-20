@@ -50,6 +50,7 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
     service = InventoryEventService()
     result = service.list()
     eventos = result.data or []
+    status_by_id = {row.get("server_id"): row.get("status") for row in eventos if row.get("server_id") is not None}
     location_options = _location_options()
 
     if not result.ok:
@@ -95,6 +96,9 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
                     dlg_location.update()
                     dlg_title.update()
                     dlg_status.update()
+                    dlg_required_msg.update()
+                elif result.error_code == "REQUIRED_COUNTS_NOT_MET":
+                    dlg_required_msg.value = "Required counts nao atingido para fechar o evento."
                     dlg_required_msg.update()
                 return
             dlg_required_msg.value = ""
@@ -176,6 +180,7 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
         theme = page.theme
         primary_color = (theme.color_scheme.primary if theme and theme.color_scheme else None) or ft.Colors.BLUE
         error_color = (theme.color_scheme.error if theme and theme.color_scheme else None) or ft.Colors.RED
+        is_read_only = (evento.get("status") or "").lower() in {"closed", "finalized"}
         row = ft.Row(
             [
                 _row_cell(evento.get("title") or "-", expand=3),
@@ -188,6 +193,7 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
                                 ICON_EDIT,
                                 primary_color,
                                 lambda e, evento=evento: abrir_edicao(evento),
+                                disabled=is_read_only,
                             ),
                             action_button(
                                 ICON_DELETE,
@@ -197,6 +203,7 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
                                     DIALOG_CONFIRM_DELETE,
                                     lambda: [service.delete(evento.get("uuid") or ""), on_refresh(None)],
                                 ),
+                                disabled=is_read_only,
                             ),
                         ],
                         spacing=4,
@@ -217,6 +224,8 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
 
     for evento in eventos:
         def abrir_edicao(evento=evento):
+            if (evento.get("status") or "").lower() in {"closed", "finalized"}:
+                return
             dlg_location = ft.Dropdown(
                 label=FIELD_LOCATION,
                 options=location_options,
@@ -261,6 +270,12 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
                         dlg_location.update()
                         dlg_title.update()
                         dlg_status.update()
+                        dlg_required_msg.update()
+                    elif result.error_code == "REQUIRED_COUNTS_NOT_MET":
+                        dlg_required_msg.value = "Required counts nao atingido para fechar o evento."
+                        dlg_required_msg.update()
+                    elif result.error_code == "EVENT_READ_ONLY":
+                        dlg_required_msg.value = "Evento fechado nao permite edicao."
                         dlg_required_msg.update()
                     return
                 dlg_required_msg.value = ""

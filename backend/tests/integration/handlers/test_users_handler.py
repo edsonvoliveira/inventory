@@ -10,6 +10,7 @@ Responsibilities:
 import os
 import importlib
 from uuid import uuid4
+from datetime import datetime, timezone
 from datetime import datetime, timedelta, timezone
 
 from app.clients.supabase_client import get_supabase_service_client
@@ -80,13 +81,10 @@ def test_users_push_insert_and_pull():
         "is_active": True,
     }
 
-    handler.insert(payload=payload, record_uuid=record_uuid, user=user)
-
     try:
-        data = handler.pull(company_id=TEST_COMPANY_ID, since=None)
-        assert any(r["uuid"] == record_uuid for r in data)
-    finally:
-        cleanup(record_uuid)
+        handler.insert(payload=payload, record_uuid=record_uuid, user=user)
+    except RuntimeError as exc:
+        assert "Users nao suportam insert via sync" in str(exc)
 
 
 def test_users_push_update():
@@ -105,7 +103,14 @@ def test_users_push_update():
     }).execute()
 
     user = FakeCurrentUser(company_server_id=TEST_COMPANY_ID, db_user_id=TEST_USER_ID)
-    handler.update(payload={"name": "User Atualizado"}, record_uuid=record_uuid, user=user)
+    handler.update(
+        payload={
+            "name": "User Atualizado",
+            "client_updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+        record_uuid=record_uuid,
+        user=user,
+    )
 
     try:
         resp = sb.table("users").select("name").eq("uuid", record_uuid).execute()
@@ -130,10 +135,9 @@ def test_users_push_soft_delete():
     }).execute()
 
     user = FakeCurrentUser(company_server_id=TEST_COMPANY_ID, db_user_id=TEST_USER_ID)
-    handler.delete(payload={}, record_uuid=record_uuid, user=user)
-
     try:
-        resp = sb.table("users").select("is_active").eq("uuid", record_uuid).execute()
-        assert resp.data and resp.data[0]["is_active"] is False
+        handler.delete(payload={}, record_uuid=record_uuid, user=user)
+    except RuntimeError as exc:
+        assert "Users nao suportam delete via sync" in str(exc)
     finally:
         cleanup(record_uuid)

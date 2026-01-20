@@ -63,7 +63,6 @@ def test_companies_soft_delete_from_server(conn_with_company):
             "uuid": "c-1",
             "server_id": 1,
             "name": "Empresa",
-            "deleted_at": "2025-01-01T10:00:00Z",
             "is_active": 0,
             "source": "server",
         }
@@ -71,14 +70,13 @@ def test_companies_soft_delete_from_server(conn_with_company):
 
     row = conn_with_company.execute(
         """
-        SELECT deleted_at, is_active
+        SELECT is_active
         FROM companies_local
         WHERE uuid = 'c-1'
         """
     ).fetchone()
 
-    assert row[0] is not None
-    assert row[1] == 0
+    assert row[0] == 0
 
 
 def test_companies_get_all_active_only(conn_with_company):
@@ -97,7 +95,6 @@ def test_companies_get_all_active_only(conn_with_company):
             "server_id": 2,
             "name": "Inativa",
             "is_active": 0,
-            "deleted_at": "2025-01-01T10:00:00Z",
             "source": "server",
         },
     ])
@@ -125,7 +122,6 @@ def test_companies_get_all_including_deleted(conn_with_company):
             "server_id": 2,
             "name": "Inativa",
             "is_active": 0,
-            "deleted_at": "2025-01-01T10:00:00Z",
             "source": "server",
         },
     ])

@@ -11,7 +11,7 @@ import flet as ft
 from mobile.core.app_state import AppState
 from mobile.core.navigation import ROUTES
 from mobile.core.theme import THEME, TOUCH
-from mobile.data.queries import count_distinct_products_for_zone
+from mobile.data.queries import count_distinct_products_for_zone, is_event_closed, is_zone_closed
 from mobile.utils.ui import toast
 
 
@@ -93,6 +93,12 @@ def zone_details_content(page: ft.Page, state: AppState):
         elevation=2,
     )
 
+    closed_zone = is_zone_closed(zone_id)
+    closed_event = is_event_closed(event_id)
+    is_read_only = closed_zone or closed_event
+    if is_read_only:
+        toast(page, "Zona/Evento fechado. Contagem somente leitura.", success=False)
+
     start_button = ft.ElevatedButton(
         content=ft.Row(
             [ft.Icon(ft.Icons.PLAY_ARROW), ft.Text("Iniciar Contagem")],
@@ -100,7 +106,8 @@ def zone_details_content(page: ft.Page, state: AppState):
         ),
         height=TOUCH["button_height"],
         width=360,
-        on_click=lambda e: page.go(ROUTES["counting"]),
+        on_click=None if is_read_only else (lambda e: page.go(ROUTES["counting"])),
+        disabled=is_read_only,
     )
 
     return ft.Container(

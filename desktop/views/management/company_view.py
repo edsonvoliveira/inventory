@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 import flet as ft
 
 from desktop.core.company_service import CompanyService
+from desktop.core.permissions import can_write_entity
 from desktop.core.ui_constants import ICON_ADD, ICON_DELETE, ICON_EDIT
 from desktop.core.strings import (
     COMPANY_ADD,
@@ -35,6 +36,7 @@ def render_company_view(page: ft.Page, on_refresh):
     service = CompanyService()
     result = service.list()
     empresas = result.data or []
+    can_manage = can_write_entity("companies")
 
     if not result.ok:
         list_view.controls.append(ft.Text(result.message or "Erro ao carregar empresas."))
@@ -71,7 +73,12 @@ def render_company_view(page: ft.Page, on_refresh):
         ft.Row(
             [
                 ft.Text(COMPANY_TITLE, size=28, weight=ft.FontWeight.BOLD, expand=1),
-                ft.ElevatedButton(f"{COMPANY_ADD}  ", icon=ICON_ADD, on_click=criar_empresa),
+                ft.ElevatedButton(
+                    f"{COMPANY_ADD}  ",
+                    icon=ICON_ADD,
+                    on_click=criar_empresa,
+                    disabled=not can_manage,
+                ),
             ],
             spacing=5,
         ),
@@ -118,32 +125,37 @@ def render_company_view(page: ft.Page, on_refresh):
         theme = page.theme
         primary_color = (theme.color_scheme.primary if theme and theme.color_scheme else None) or ft.Colors.BLUE
         error_color = (theme.color_scheme.error if theme and theme.color_scheme else None) or ft.Colors.RED
+        actions = (
+            ft.Row(
+                [
+                    action_button(
+                        ICON_EDIT,
+                        primary_color,
+                        lambda e, emp=emp: abrir_edicao_empresa(emp),
+                    ),
+                    action_button(
+                        ICON_DELETE,
+                        error_color,
+                        lambda e, id=emp.get("id"): confirm_dialog(
+                            page,
+                            DIALOG_CONFIRM_DELETE,
+                            lambda: [service.delete(id), on_refresh(None)],
+                        ),
+                    ),
+                ],
+                spacing=4,
+                alignment=ft.MainAxisAlignment.END,
+            )
+            if can_manage
+            else ft.Text("-")
+        )
         row = ft.Row(
             [
                 _row_cell(str(emp.get("id") or "-"), width=60),
                 _row_cell(emp.get("name") or "-", expand=2),
                 _row_cell(emp.get("nif") or "-", width=140),
                 ft.Container(
-                    content=ft.Row(
-                        [
-                            action_button(
-                                ICON_EDIT,
-                                primary_color,
-                                lambda e, emp=emp: abrir_edicao_empresa(emp),
-                            ),
-                            action_button(
-                                ICON_DELETE,
-                                error_color,
-                                lambda e, id=emp.get("id"): confirm_dialog(
-                                    page,
-                                    DIALOG_CONFIRM_DELETE,
-                                    lambda: [service.delete(id), on_refresh(None)],
-                                ),
-                            ),
-                        ],
-                        spacing=4,
-                        alignment=ft.MainAxisAlignment.END,
-                    ),
+                    content=actions,
                     width=120,
                     padding=ft.padding.symmetric(vertical=4, horizontal=0),
                     alignment=ft.alignment.center_right,

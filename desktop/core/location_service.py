@@ -6,6 +6,7 @@ Responsibilities:
 """
 
 from desktop.core.result import Result
+from desktop.core.permissions import can_write_entity
 from desktop.data.repositories.locations_repo import LocationsRepo
 from desktop.data.repository import (
     company_get_all,
@@ -33,6 +34,8 @@ class LocationService:
             )
 
     def create(self, name: str) -> Result[None]:
+        if not can_write_entity("locations"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         if not is_required(name):
             return Result(ok=False, message="Informacoes obrigatorias", error_code="VALIDATION_ERROR")
         company_id = self._resolve_company_id()
@@ -55,6 +58,8 @@ class LocationService:
         return Result(ok=True)
 
     def update(self, location_id: int, name: str) -> Result[None]:
+        if not can_write_entity("locations"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         if not is_required(name):
             return Result(ok=False, message="Informacoes obrigatorias", error_code="VALIDATION_ERROR")
         company_id = self._resolve_company_id()
@@ -83,6 +88,8 @@ class LocationService:
         return Result(ok=True)
 
     def delete(self, location_id: int) -> Result[None]:
+        if not can_write_entity("locations"):
+            return Result(ok=False, message="Operacao nao permitida.", error_code="OPERATION_NOT_ALLOWED_FOR_ORIGIN")
         try:
             rows = location_get_all()
             location_uuid = next((r.get("uuid") for r in rows if r.get("id") == location_id), None)

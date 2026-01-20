@@ -9,6 +9,7 @@ Responsibilities:
 # app/schemas/sync.py
 
 from typing import List, Dict, Any
+from pydantic import Field
 from pydantic import BaseModel
 
 
@@ -30,7 +31,8 @@ class SyncPushRequest(BaseModel):
 class SyncPushResponse(BaseModel):
     accepted: List[str]
     failed: List[str]
-    rejected: Dict[str, str] = {}
+    rejected: Dict[str, str] = Field(default_factory=dict)
+    server_ids: Dict[str, int] = Field(default_factory=dict)
 
 
 # ======================================================

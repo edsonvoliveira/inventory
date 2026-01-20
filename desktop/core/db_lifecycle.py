@@ -18,6 +18,7 @@ Responsabilities:
 import os
 
 from desktop.data.db.schema import SCHEMA_SQL, SCHEMA_VERSION
+from desktop.data.db.migrations import run_migrations_if_needed
 from desktop.data.db.connection import get_connection
 from desktop.data.repositories.app_meta_repo import set_meta, get_meta
 
@@ -41,6 +42,7 @@ def recreate_database() -> None:
         set_meta("schema_version", str(SCHEMA_VERSION), conn)
         # Opcional, mas recomendado: resetar flags administrativas
         set_meta("bootstrap_done", "", conn)
+        set_meta("last_server_sync_at", "", conn)
         set_meta("last_pull_at", "", conn)
         conn.commit()
     finally:
@@ -55,6 +57,8 @@ def ensure_schema() -> None:
     conn = get_connection()
     try:
         current = get_meta("schema_version", conn)
+        if current == str(SCHEMA_VERSION):
+            run_migrations_if_needed(conn)
         if current != str(SCHEMA_VERSION):
             conn.close()  # fecha antes de recriar (Windows/locks)
             recreate_database()

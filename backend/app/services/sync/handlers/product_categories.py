@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.services.sync.handlers.base import BaseSyncHandler
+from app.services.sync.handlers._helpers import record_exists_by_uuid, should_apply_lww
 from app.clients.supabase_client import get_supabase_service_client
 from app.core.user_context import UserContext
 
@@ -58,6 +59,8 @@ class ProductCategorySyncHandler(BaseSyncHandler):
     # ---------------------------
     def insert(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
+        if record_exists_by_uuid(sb, self.table_name, record_uuid):
+            return
 
         data = {
             "uuid": record_uuid,
@@ -75,6 +78,16 @@ class ProductCategorySyncHandler(BaseSyncHandler):
     # ---------------------------
     def update(self, payload: Dict[str, Any], record_uuid: str, user: UserContext) -> None:
         sb = get_supabase_service_client()
+        if not should_apply_lww(sb, self.table_name, record_uuid, payload.get("client_updated_at")):
+            return
+
+        self._reject_unknown_fields(payload, allowed_fields=[
+            "code",
+            "name",
+            "description",
+            "is_active",
+            "client_updated_at",
+        ])
 
         update_data = {}
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional
+from uuid import uuid4
 
 from app_core.application.bootstrap_service import BootstrapService
 from app_core.application.sync_pull_service import SyncPullService
@@ -34,8 +35,9 @@ class SyncService:
         self._sync_pull_service = sync_pull_service
         self._sync_push_service = sync_push_service
 
-    def run(self) -> SyncResult:
+    def run(self, *, correlation_id: str | None = None) -> SyncResult:
         try:
+            corr_id = correlation_id or str(uuid4())
             jwt_token = self._session.get_jwt_token()
             if not jwt_token:
                 raise RuntimeError("JWT token not available for sync")
@@ -46,7 +48,7 @@ class SyncService:
 
             bootstrap_done = self._app_meta_repo.get_meta("bootstrap_done")
             if bootstrap_done != "1":
-                self._bootstrap_service.run()
+                self._bootstrap_service.run(correlation_id=corr_id)
                 return SyncResult(
                     did_bootstrap=True,
                     push_accepted=0,
@@ -55,8 +57,8 @@ class SyncService:
                     error=None,
                 )
 
-            push_accepted, push_failed = self._sync_push_service.run()
-            self._sync_pull_service.run()
+            push_accepted, push_failed = self._sync_push_service.run(correlation_id=corr_id)
+            self._sync_pull_service.run(correlation_id=corr_id)
 
             return SyncResult(
                 did_bootstrap=False,
