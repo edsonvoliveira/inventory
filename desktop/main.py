@@ -14,7 +14,7 @@ from desktop.core.app_state import AppState
 from desktop.core.auth_service import AuthService
 from desktop.core.layout import AppLayout
 from desktop.core.router import AppRouter
-from desktop.core.sync_service import SyncScheduler
+from desktop.core.sync_service import get_scheduler
 from desktop.core.session_service import SessionService
 from desktop.bootstrap.bootstrap import bootstrap_app
 from desktop.views.auth.login_view import LoginView
@@ -25,7 +25,7 @@ bootstrap_app()
 def main(page: ft.Page):
     app_state = AppState()
     auth_service = AuthService()
-    scheduler = SyncScheduler()
+    scheduler = get_scheduler()
 
     page.title = "Inventory"
     page.window.maximized = False

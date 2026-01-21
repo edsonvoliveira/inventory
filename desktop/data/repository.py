@@ -358,7 +358,7 @@ def location_get_all():
         company_server_to_id = {c[1]: c[0] for c in company_rows}
         cur = conn.execute(
             """
-            SELECT id, name, company_server_id
+            SELECT id, uuid, server_id, name, company_server_id
             FROM locations_local
             WHERE is_active = 1
             ORDER BY id
@@ -379,7 +379,7 @@ def location_get(id: int):
     with _get_conn() as conn:
         cur = conn.execute(
             """
-            SELECT id, name, company_server_id
+            SELECT id, uuid, server_id, name, company_server_id
             FROM locations_local
             WHERE id = ? AND is_active = 1
             """,

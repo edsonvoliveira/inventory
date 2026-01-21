@@ -7,6 +7,7 @@ Responsibilities:
 """
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Optional
 import logging
 from pathlib import Path
@@ -21,6 +22,8 @@ from desktop.data.repositories.app_meta_repo import get_meta, set_meta
 import threading
 
 logger = logging.getLogger(__name__)
+SYNC_INTERVAL_META_KEY = "sync_interval_seconds"
+DEFAULT_SYNC_INTERVAL_SECONDS = 180
 
 
 def _get_sync_logger() -> logging.Logger:
@@ -76,6 +79,8 @@ class SyncService:
             result.pulled,
             result.error,
         )
+        if not result.error:
+            set_meta("last_push_at", datetime.now(timezone.utc).isoformat())
         return SyncResult(
             did_bootstrap=result.did_bootstrap,
             push_accepted=result.push_accepted,
@@ -121,7 +126,9 @@ def push_outbox_once(jwt_token: str) -> tuple[int, int]:
 
     SessionService.set_jwt_token(jwt_token)
     services = build_services()
-    return services.sync_push.run(correlation_id=str(uuid4()))
+    accepted, failed = services.sync_push.run(correlation_id=str(uuid4()))
+    set_meta("last_push_at", datetime.now(timezone.utc).isoformat())
+    return accepted, failed
 
 
 class SyncScheduler:
@@ -146,3 +153,32 @@ class SyncScheduler:
             if token:
                 SyncService().run()
             self._stop_event.wait(self._interval)
+
+    def set_interval(self, interval_seconds: int) -> None:
+        self._interval = interval_seconds
+
+    def get_interval(self) -> int:
+        return self._interval
+
+    def restart(self) -> None:
+        self.stop()
+        self.start()
+
+
+_scheduler: SyncScheduler | None = None
+
+
+def get_sync_interval_seconds() -> int:
+    raw = get_meta(SYNC_INTERVAL_META_KEY)
+    try:
+        value = int(raw) if raw is not None else DEFAULT_SYNC_INTERVAL_SECONDS
+    except (TypeError, ValueError):
+        return DEFAULT_SYNC_INTERVAL_SECONDS
+    return value
+
+
+def get_scheduler() -> SyncScheduler:
+    global _scheduler
+    if _scheduler is None:
+        _scheduler = SyncScheduler(interval_seconds=get_sync_interval_seconds())
+    return _scheduler

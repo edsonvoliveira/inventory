@@ -26,7 +26,9 @@ from desktop.core.strings import (
 )
 from desktop.core.ui_constants import ICON_ADD, ICON_DELETE, ICON_EDIT
 from desktop.data.repositories.inventory_events_repo import InventoryEventsRepo
-from desktop.utils.dialogs import action_button, confirm_dialog, form_column, open_form_dialog
+from desktop.utils.dialogs import action_button, confirm_dialog, form_column, open_form_dialog, disable_control
+from desktop.utils.event_bus import event_bus
+from desktop.utils.notifications import show_auto_refresh
 
 
 def _event_options() -> list[ft.dropdown.Option]:
@@ -46,7 +48,17 @@ def render_zones_view(page: ft.Page, on_refresh):
     service = ZonesService()
     result = service.list()
     zonas = result.data or []
-    event_options = _event_options()
+    def _on_events_changed(_payload):
+        if page.route != "/zones":
+            return
+        on_refresh(None)
+        show_auto_refresh(page)
+
+    event_bus.subscribe(
+        "inventory_events_changed",
+        _on_events_changed,
+        key="zones_view.events",
+    )
     event_status_by_id = {
         row.get("server_id"): (row.get("status") or "").lower()
         for row in InventoryEventsRepo().get_all()
@@ -56,12 +68,33 @@ def render_zones_view(page: ft.Page, on_refresh):
     if not result.ok:
         list_view.controls.append(ft.Text(result.message or "Erro ao carregar zonas."))
 
+    def _count_status_options() -> list[ft.dropdown.Option]:
+        return [
+            ft.dropdown.Option("not_started", "not_started"),
+            ft.dropdown.Option("counting", "counting"),
+            ft.dropdown.Option("finished", "finished"),
+        ]
+
+    def _lock_status_options() -> list[ft.dropdown.Option]:
+        return [
+            ft.dropdown.Option("unlocked", "unlocked"),
+            ft.dropdown.Option("locked", "locked"),
+        ]
+
     def criar_zona(e):
-        dlg_event = ft.Dropdown(label=FIELD_EVENT, options=event_options)
+        dlg_event = ft.Dropdown(label=FIELD_EVENT, options=_event_options())
         dlg_name = ft.TextField(label=FIELD_NAME, autofocus=True)
         dlg_description = ft.TextField(label=FIELD_DESCRIPTION)
-        dlg_count_status = ft.TextField(label=f"{FIELD_STATUS} (Count)")
-        dlg_lock_status = ft.TextField(label=f"{FIELD_STATUS} (Lock)")
+        dlg_count_status = ft.Dropdown(
+            label=f"{FIELD_STATUS} (Count)",
+            options=_count_status_options(),
+            value="not_started",
+        )
+        dlg_lock_status = ft.Dropdown(
+            label=f"{FIELD_STATUS} (Lock)",
+            options=_lock_status_options(),
+            value="unlocked",
+        )
         theme = page.theme
         error_color = theme.color_scheme.error if theme and theme.color_scheme else ft.Colors.RED
         dlg_required_msg = ft.Text("", color=error_color)
@@ -151,8 +184,10 @@ def render_zones_view(page: ft.Page, on_refresh):
             content=ft.Row(
                 [
                     _header_cell("Nome", expand=2),
+                    _header_cell("Contagem", width=120),
+                    _header_cell("Status Zona", width=120),
                     _header_cell("Evento", width=120),
-                    _header_cell("Status", width=120),
+                    _header_cell("Status Evento", width=120),
                     _header_cell("Acoes", width=120),
                 ],
                 spacing=0,
@@ -179,8 +214,10 @@ def render_zones_view(page: ft.Page, on_refresh):
         row = ft.Row(
             [
                 _row_cell(zona.get("name") or "-", expand=2),
-                _row_cell(str(zona.get("event_server_id") or "-"), width=120),
                 _row_cell(zona.get("count_status") or "-", width=120),
+                _row_cell(zona.get("lock_status") or "-", width=120),
+                _row_cell(str(zona.get("event_server_id") or "-"), width=120),
+                _row_cell(event_status or "-", width=120),
                 ft.Container(
                     content=ft.Row(
                         [
@@ -230,13 +267,22 @@ def render_zones_view(page: ft.Page, on_refresh):
                 return
             dlg_event = ft.Dropdown(
                 label=FIELD_EVENT,
-                options=event_options,
+                options=_event_options(),
                 value=str(zona.get("event_server_id") or ""),
             )
             dlg_name = ft.TextField(label=FIELD_NAME, value=zona.get("name") or "")
             dlg_description = ft.TextField(label=FIELD_DESCRIPTION, value=zona.get("description") or "")
-            dlg_count_status = ft.TextField(label=f"{FIELD_STATUS} (Count)", value=zona.get("count_status") or "")
-            dlg_lock_status = ft.TextField(label=f"{FIELD_STATUS} (Lock)", value=zona.get("lock_status") or "")
+            dlg_count_status = ft.Dropdown(
+                label=f"{FIELD_STATUS} (Count)",
+                options=_count_status_options(),
+                value=(zona.get("count_status") or "").lower() or "not_started",
+            )
+            dlg_lock_status = ft.Dropdown(
+                label=f"{FIELD_STATUS} (Lock)",
+                options=_lock_status_options(),
+                value=(zona.get("lock_status") or "").lower() or "unlocked",
+            )
+            disable_control(dlg_event)
             theme = page.theme
             error_color = theme.color_scheme.error if theme and theme.color_scheme else ft.Colors.RED
             dlg_required_msg = ft.Text("", color=error_color)

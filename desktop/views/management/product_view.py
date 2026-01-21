@@ -32,7 +32,8 @@ from desktop.core.strings import (
     PRODUCT_EDIT_TITLE,
     PRODUCT_TITLE,
 )
-from desktop.utils.dialogs import action_button, confirm_dialog, form_column, open_form_dialog
+from desktop.utils.dialogs import action_button, confirm_dialog, form_column, open_form_dialog, disable_control
+from desktop.utils.event_bus import event_bus
 
 
 def render_product_view(page: ft.Page, on_refresh):
@@ -93,6 +94,10 @@ def render_product_view(page: ft.Page, on_refresh):
             dlg.open = False
             page.update()
             on_refresh(None)
+            event_bus.publish("products_changed")
+            event_bus.publish("product_barcodes_changed")
+            event_bus.mark_dirty("/product-barcodes")
+            event_bus.mark_dirty("/event-targets")
 
         open_form_dialog(
             page,
@@ -176,7 +181,14 @@ def render_product_view(page: ft.Page, on_refresh):
                                 lambda e, id=produto.get("id"): confirm_dialog(
                                     page,
                                     DIALOG_CONFIRM_DELETE,
-                                    lambda: [product_service.delete(id), on_refresh(None)],
+                                    lambda: [
+                                        product_service.delete(id),
+                                        on_refresh(None),
+                                        event_bus.publish("products_changed"),
+                                        event_bus.publish("product_barcodes_changed"),
+                                        event_bus.mark_dirty("/product-barcodes"),
+                                        event_bus.mark_dirty("/event-targets"),
+                                    ],
                                 ),
                             ),
                         ],
@@ -203,6 +215,8 @@ def render_product_view(page: ft.Page, on_refresh):
             dlg_name = ft.TextField(label=FIELD_NAME, value=produto["name"])
             dlg_unit_cost = ft.TextField(label=FIELD_PRICE, value=str(produto["unit_cost"]))
             dlg_unit_of_measure = ft.TextField(label=FIELD_UNIT, value=produto["unit_of_measure"])
+            disable_control(dlg_sku)
+            disable_control(dlg_barcode)
             theme = page.theme
             error_color = theme.color_scheme.error if theme and theme.color_scheme else ft.Colors.RED
             dlg_required_msg = ft.Text("", color=error_color)
@@ -242,6 +256,11 @@ def render_product_view(page: ft.Page, on_refresh):
                 dlg.open = False
                 page.update()
                 on_refresh(None)
+                event_bus.publish("products_changed")
+                event_bus.mark_dirty("/event-targets")
+                if (dlg_barcode.value or "").strip():
+                    event_bus.publish("product_barcodes_changed")
+                    event_bus.mark_dirty("/product-barcodes")
 
             open_form_dialog(
                 page,

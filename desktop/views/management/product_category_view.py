@@ -93,8 +93,6 @@ def render_product_category_view(page: ft.Page, on_refresh):
     )
 
     header_bg = getattr(ft.Colors, "BLUE_GREY_50", ft.Colors.GREY_200)
-    row_bg = getattr(ft.Colors, "WHITE", ft.Colors.WHITE)
-    hover_bg = getattr(ft.Colors, "BLUE_GREY_100", ft.Colors.GREY_300)
     line_color = getattr(ft.Colors, "BLUE_GREY_100", ft.Colors.GREY_300)
 
     def _header_cell(label: str, *, width: Optional[int] = None, expand: Optional[int] = None):
@@ -170,12 +168,10 @@ def render_product_category_view(page: ft.Page, on_refresh):
             spacing=0,
         )
 
-        row_container = ft.Container(
+        return ft.Container(
             content=row,
-            bgcolor=row_bg,
             border=ft.border.only(bottom=ft.BorderSide(1, line_color)),
         )
-        return row_container
 
     for categoria in categorias:
         def abrir_edicao_categoria(categoria=categoria):

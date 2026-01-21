@@ -33,5 +33,5 @@ def render_page(rota: str, page: ft.Page, on_refresh):
     if rota == "/product":
         return render_product_view(page, on_refresh)
     if rota == "/config":
-        return render_config_view()
+        return render_config_view(page, on_refresh)
     return ft.Column(expand=True, spacing=10)

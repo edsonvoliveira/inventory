@@ -61,6 +61,19 @@ def action_button(icon: str, color: str, on_click, disabled: bool = False):
     )
 
 
+def disable_control(control: ft.Control) -> None:
+    if hasattr(control, "disabled"):
+        control.disabled = True
+    if hasattr(control, "border_color"):
+        control.border_color = ft.Colors.GREY_300
+    if hasattr(control, "focused_border_color"):
+        control.focused_border_color = ft.Colors.GREY_300
+    if hasattr(control, "label_style"):
+        control.label_style = ft.TextStyle(color=ft.Colors.GREY_400)
+    if hasattr(control, "text_style"):
+        control.text_style = ft.TextStyle(color=ft.Colors.GREY_400)
+
+
 def confirm_dialog(
     page: ft.Page,
     message: str,

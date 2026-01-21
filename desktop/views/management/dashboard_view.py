@@ -13,6 +13,7 @@ from desktop.core.sync_service import SyncService
 from desktop.data.db.connection import get_connection
 from desktop.data.repositories.app_meta_repo import get_meta
 from desktop.data.repositories.outbox_repo import OutboxRepo
+from desktop.utils.datetime_format import format_ts
 
 
 def _status_dot(ok: bool) -> ft.Container:
@@ -100,9 +101,9 @@ def _fetch_context():
             "company_name": company_name,
             "user_email": user_email,
             "user_role": user_role,
-            "last_bootstrap": last_bootstrap,
-            "last_pull": last_pull,
-            "last_push": last_push,
+            "last_bootstrap": format_ts(last_bootstrap),
+            "last_pull": format_ts(last_pull),
+            "last_push": format_ts(last_push),
             "pending": pending,
             "sync_errors": sync_errors,
             "error_rows": [

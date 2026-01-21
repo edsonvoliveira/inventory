@@ -92,6 +92,6 @@ NAV_ITEMS = [
         "nome": SECTION_CONFIG,
         "rota": "/config",
         "protected": True,
-        "factory": lambda page, on_refresh: render_config_view(),
+        "factory": render_config_view,
     },
 ]

@@ -11,6 +11,8 @@ import flet as ft
 from desktop.core.app_state import AppState
 from desktop.core.layout import AppLayout
 from desktop.core.navigation import NAV_ITEMS
+from desktop.utils.event_bus import event_bus
+from desktop.utils.notifications import show_auto_refresh
 from desktop.views.auth.login_view import LoginView
 
 
@@ -74,6 +76,8 @@ class AppRouter:
 
             # Single update at end
             self.page.update()
+            if event_bus.consume_dirty(route):
+                show_auto_refresh(self.page)
         except Exception:
             self._handle_error()
 

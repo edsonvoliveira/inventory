@@ -33,7 +33,7 @@ from desktop.data.repository import (
     user_get_all,
     user_update,
 )
-from desktop.utils.dialogs import action_button, form_column, open_form_dialog
+from desktop.utils.dialogs import action_button, form_column, open_form_dialog, disable_control
 from desktop.utils.validation import is_required
 
 
@@ -187,6 +187,8 @@ def render_user_view(page: ft.Page, on_refresh):
                 value=str(usuario["company_id"]),
             )
             dlg_active = ft.Checkbox(label=FIELD_ACTIVE, value=bool(usuario["is_active"]))
+            disable_control(dlg_email)
+            disable_control(dlg_company)
             def salvar_edicao(e, dlg):
                 user_update(
                     usuario["id"],

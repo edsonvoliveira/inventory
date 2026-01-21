@@ -15,6 +15,7 @@ from uuid import uuid4
 import json
 
 from desktop.data.db.connection import get_connection
+from desktop.data.repositories.sync_allowlist import filter_payload
 
 
 @dataclass(frozen=True)
@@ -64,13 +65,14 @@ class BaseRepo:
     def _enqueue_outbox(self, operation: str, record_uuid: str, payload: dict):
         if not self.cfg.enable_outbox:
             return
+        filtered = filter_payload(self.cfg.entity_name, operation, payload)
 
         self.conn.execute(
             """
             INSERT INTO outbox_local (table_name, operation, record_uuid, payload)
             VALUES (?, ?, ?, ?)
             """,
-            (self.cfg.entity_name, operation, record_uuid, json.dumps(payload)),
+            (self.cfg.entity_name, operation, record_uuid, json.dumps(filtered)),
         )
 
     # --------------------------------------------------

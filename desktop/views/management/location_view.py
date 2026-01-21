@@ -23,6 +23,7 @@ from desktop.core.strings import (
     LOCATION_TITLE,
 )
 from desktop.utils.dialogs import action_button, form_column, open_form_dialog
+from desktop.utils.event_bus import event_bus
 
 
 def render_location_view(page: ft.Page, on_refresh):
@@ -56,6 +57,8 @@ def render_location_view(page: ft.Page, on_refresh):
             dlg.open = False
             page.update()
             on_refresh(None)
+            event_bus.publish("locations_changed")
+            event_bus.mark_dirty("/inventory-events")
 
         open_form_dialog(
             page,
@@ -132,7 +135,12 @@ def render_location_view(page: ft.Page, on_refresh):
                             action_button(
                                 ICON_DELETE,
                                 error_color,
-                                lambda e, id=local.get("id"): [service.delete(id), on_refresh(None)],
+                                lambda e, id=local.get("id"): [
+                                    service.delete(id),
+                                    on_refresh(None),
+                                    event_bus.publish("locations_changed"),
+                                    event_bus.mark_dirty("/inventory-events"),
+                                ],
                             ),
                         ],
                         spacing=4,
@@ -173,6 +181,8 @@ def render_location_view(page: ft.Page, on_refresh):
                 dlg.open = False
                 page.update()
                 on_refresh(None)
+                event_bus.publish("locations_changed")
+                event_bus.mark_dirty("/inventory-events")
 
             open_form_dialog(
                 page,

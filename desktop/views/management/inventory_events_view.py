@@ -30,7 +30,9 @@ from desktop.core.strings import (
 )
 from desktop.core.ui_constants import ICON_ADD, ICON_DELETE, ICON_EDIT
 from desktop.data.repositories.locations_repo import LocationsRepo
-from desktop.utils.dialogs import action_button, confirm_dialog, form_column, open_form_dialog
+from desktop.utils.dialogs import action_button, confirm_dialog, form_column, open_form_dialog, disable_control
+from desktop.utils.event_bus import event_bus
+from desktop.utils.notifications import show_auto_refresh
 
 
 def _location_options() -> list[ft.dropdown.Option]:
@@ -44,6 +46,16 @@ def _location_options() -> list[ft.dropdown.Option]:
     return options
 
 
+def _status_options() -> list[ft.dropdown.Option]:
+    return [
+        ft.dropdown.Option("planned", "planned"),
+        ft.dropdown.Option("open", "open"),
+        ft.dropdown.Option("counting", "counting"),
+        ft.dropdown.Option("closed", "closed"),
+        ft.dropdown.Option("finalized", "finalized"),
+    ]
+
+
 def render_inventory_events_view(page: ft.Page, on_refresh):
     coluna = ft.Column(expand=True, spacing=10)
     list_view = ft.ListView(expand=True, spacing=8)
@@ -51,16 +63,25 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
     result = service.list()
     eventos = result.data or []
     status_by_id = {row.get("server_id"): row.get("status") for row in eventos if row.get("server_id") is not None}
-    location_options = _location_options()
+    def _on_locations_changed(_payload):
+        if page.route != "/inventory-events":
+            return
+        on_refresh(None)
+        show_auto_refresh(page)
 
+    event_bus.subscribe(
+        "locations_changed",
+        _on_locations_changed,
+        key="inventory_events_view.locations",
+    )
     if not result.ok:
         list_view.controls.append(ft.Text(result.message or "Erro ao carregar eventos."))
 
     def criar_evento(e):
-        dlg_location = ft.Dropdown(label=FIELD_LOCATION, options=location_options)
+        dlg_location = ft.Dropdown(label=FIELD_LOCATION, options=_location_options())
         dlg_title = ft.TextField(label=FIELD_TITLE, autofocus=True)
         dlg_event_type = ft.TextField(label=FIELD_EVENT_TYPE)
-        dlg_status = ft.TextField(label=FIELD_STATUS)
+        dlg_status = ft.Dropdown(label=FIELD_STATUS, options=_status_options(), value="planned")
         dlg_required_counts = ft.TextField(label=FIELD_REQUIRED_COUNTS)
         dlg_required_audits = ft.TextField(label=FIELD_REQUIRED_AUDITS)
         dlg_tol_percent = ft.TextField(label=FIELD_TOLERANCE_PERCENT)
@@ -106,6 +127,9 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
             dlg.open = False
             page.update()
             on_refresh(None)
+            event_bus.publish("inventory_events_changed")
+            event_bus.mark_dirty("/zones")
+            event_bus.mark_dirty("/event-targets")
 
         open_form_dialog(
             page,
@@ -201,7 +225,13 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
                                 lambda e, evento=evento: confirm_dialog(
                                     page,
                                     DIALOG_CONFIRM_DELETE,
-                                    lambda: [service.delete(evento.get("uuid") or ""), on_refresh(None)],
+                                    lambda: [
+                                        service.delete(evento.get("uuid") or ""),
+                                        on_refresh(None),
+                                        event_bus.publish("inventory_events_changed"),
+                                        event_bus.mark_dirty("/zones"),
+                                        event_bus.mark_dirty("/event-targets"),
+                                    ],
                                 ),
                                 disabled=is_read_only,
                             ),
@@ -228,12 +258,17 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
                 return
             dlg_location = ft.Dropdown(
                 label=FIELD_LOCATION,
-                options=location_options,
+                options=_location_options(),
                 value=str(evento.get("location_server_id") or ""),
             )
             dlg_title = ft.TextField(label=FIELD_TITLE, value=evento.get("title") or "")
             dlg_event_type = ft.TextField(label=FIELD_EVENT_TYPE, value=evento.get("event_type") or "")
-            dlg_status = ft.TextField(label=FIELD_STATUS, value=evento.get("status") or "")
+            dlg_status = ft.Dropdown(
+                label=FIELD_STATUS,
+                options=_status_options(),
+                value=(evento.get("status") or "").lower() or "planned",
+            )
+            disable_control(dlg_location)
             dlg_required_counts = ft.TextField(label=FIELD_REQUIRED_COUNTS, value=str(evento.get("required_counts") or ""))
             dlg_required_audits = ft.TextField(label=FIELD_REQUIRED_AUDITS, value=str(evento.get("required_audits") or ""))
             dlg_tol_percent = ft.TextField(label=FIELD_TOLERANCE_PERCENT, value=str(evento.get("tolerance_percent") or ""))
@@ -283,6 +318,9 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
                 dlg.open = False
                 page.update()
                 on_refresh(None)
+                event_bus.publish("inventory_events_changed")
+                event_bus.mark_dirty("/zones")
+                event_bus.mark_dirty("/event-targets")
 
             open_form_dialog(
                 page,

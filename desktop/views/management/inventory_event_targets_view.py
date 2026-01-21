@@ -26,7 +26,9 @@ from desktop.core.strings import (
 from desktop.core.ui_constants import ICON_ADD, ICON_DELETE, ICON_EDIT
 from desktop.data.repositories.inventory_events_repo import InventoryEventsRepo
 from desktop.data.repositories.products_repo import ProductsRepo
-from desktop.utils.dialogs import action_button, confirm_dialog, form_column, open_form_dialog
+from desktop.utils.dialogs import action_button, confirm_dialog, form_column, open_form_dialog, disable_control
+from desktop.utils.event_bus import event_bus
+from desktop.utils.notifications import show_auto_refresh
 
 
 def _event_options() -> list[ft.dropdown.Option]:
@@ -58,15 +60,34 @@ def render_inventory_event_targets_view(page: ft.Page, on_refresh):
     service = InventoryEventTargetService()
     result = service.list()
     targets = result.data or []
-    event_options = _event_options()
-    product_options = _product_options()
+    def _on_products_changed(_payload):
+        if page.route != "/event-targets":
+            return
+        on_refresh(None)
+        show_auto_refresh(page)
 
+    def _on_events_changed(_payload):
+        if page.route != "/event-targets":
+            return
+        on_refresh(None)
+        show_auto_refresh(page)
+
+    event_bus.subscribe(
+        "products_changed",
+        _on_products_changed,
+        key="inventory_event_targets_view.products",
+    )
+    event_bus.subscribe(
+        "inventory_events_changed",
+        _on_events_changed,
+        key="inventory_event_targets_view.events",
+    )
     if not result.ok:
         list_view.controls.append(ft.Text(result.message or "Erro ao carregar targets."))
 
     def criar_target(e):
-        dlg_event = ft.Dropdown(label=FIELD_EVENT, options=event_options)
-        dlg_product = ft.Dropdown(label=FIELD_PRODUCT, options=product_options)
+        dlg_event = ft.Dropdown(label=FIELD_EVENT, options=_event_options())
+        dlg_product = ft.Dropdown(label=FIELD_PRODUCT, options=_product_options())
         dlg_expected_qty = ft.TextField(label=FIELD_EXPECTED_QTY)
         theme = page.theme
         error_color = theme.color_scheme.error if theme and theme.color_scheme else ft.Colors.RED
@@ -211,15 +232,17 @@ def render_inventory_event_targets_view(page: ft.Page, on_refresh):
         def abrir_edicao(target=target):
             dlg_event = ft.Dropdown(
                 label=FIELD_EVENT,
-                options=event_options,
+                options=_event_options(),
                 value=str(target.get("event_server_id") or ""),
             )
             dlg_product = ft.Dropdown(
                 label=FIELD_PRODUCT,
-                options=product_options,
+                options=_product_options(),
                 value=str(target.get("product_server_id") or ""),
             )
             dlg_expected_qty = ft.TextField(label=FIELD_EXPECTED_QTY, value=str(target.get("expected_qty") or ""))
+            disable_control(dlg_event)
+            disable_control(dlg_product)
             theme = page.theme
             error_color = theme.color_scheme.error if theme and theme.color_scheme else ft.Colors.RED
             dlg_required_msg = ft.Text("", color=error_color)

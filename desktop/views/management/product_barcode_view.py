@@ -24,7 +24,9 @@ from desktop.core.strings import (
 )
 from desktop.core.ui_constants import ICON_ADD, ICON_DELETE, ICON_EDIT
 from desktop.data.repositories.products_repo import ProductsRepo
-from desktop.utils.dialogs import action_button, confirm_dialog, form_column, open_form_dialog
+from desktop.utils.dialogs import action_button, confirm_dialog, form_column, open_form_dialog, disable_control
+from desktop.utils.event_bus import event_bus
+from desktop.utils.notifications import show_auto_refresh
 
 
 def _product_options() -> list[ft.dropdown.Option]:
@@ -45,13 +47,33 @@ def render_product_barcode_view(page: ft.Page, on_refresh):
     service = ProductBarcodeService()
     result = service.list()
     codigos = result.data or []
-    product_options = _product_options()
+    def _on_products_changed(_payload):
+        if page.route != "/product-barcodes":
+            return
+        on_refresh(None)
+        show_auto_refresh(page)
 
+    def _on_barcodes_changed(_payload):
+        if page.route != "/product-barcodes":
+            return
+        on_refresh(None)
+        show_auto_refresh(page)
+
+    event_bus.subscribe(
+        "products_changed",
+        _on_products_changed,
+        key="product_barcode_view.products",
+    )
+    event_bus.subscribe(
+        "product_barcodes_changed",
+        _on_barcodes_changed,
+        key="product_barcode_view.barcodes",
+    )
     if not result.ok:
         list_view.controls.append(ft.Text(result.message or "Erro ao carregar codigos."))
 
     def criar_codigo(e):
-        dlg_product = ft.Dropdown(label=FIELD_PRODUCT, options=product_options)
+        dlg_product = ft.Dropdown(label=FIELD_PRODUCT, options=_product_options())
         dlg_barcode = ft.TextField(label="Codigo de Barras")
         dlg_description = ft.TextField(label=FIELD_DESCRIPTION)
         theme = page.theme
@@ -84,6 +106,7 @@ def render_product_barcode_view(page: ft.Page, on_refresh):
             dlg.open = False
             page.update()
             on_refresh(None)
+            event_bus.publish("product_barcodes_changed")
 
         open_form_dialog(
             page,
@@ -165,7 +188,11 @@ def render_product_barcode_view(page: ft.Page, on_refresh):
                                 lambda e, codigo=codigo: confirm_dialog(
                                     page,
                                     DIALOG_CONFIRM_DELETE,
-                                    lambda: [service.delete(codigo.get("uuid") or ""), on_refresh(None)],
+                                    lambda: [
+                                        service.delete(codigo.get("uuid") or ""),
+                                        on_refresh(None),
+                                        event_bus.publish("product_barcodes_changed"),
+                                    ],
                                 ),
                             ),
                         ],
@@ -189,11 +216,12 @@ def render_product_barcode_view(page: ft.Page, on_refresh):
         def abrir_edicao(codigo=codigo):
             dlg_product = ft.Dropdown(
                 label=FIELD_PRODUCT,
-                options=product_options,
+                options=_product_options(),
                 value=str(codigo.get("product_server_id") or ""),
             )
             dlg_barcode = ft.TextField(label="Codigo de Barras", value=codigo.get("barcode") or "")
             dlg_description = ft.TextField(label=FIELD_DESCRIPTION, value=codigo.get("description") or "")
+            disable_control(dlg_product)
             theme = page.theme
             error_color = theme.color_scheme.error if theme and theme.color_scheme else ft.Colors.RED
             dlg_required_msg = ft.Text("", color=error_color)
@@ -225,6 +253,7 @@ def render_product_barcode_view(page: ft.Page, on_refresh):
                 dlg.open = False
                 page.update()
                 on_refresh(None)
+                event_bus.publish("product_barcodes_changed")
 
             open_form_dialog(
                 page,
