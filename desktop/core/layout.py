@@ -36,6 +36,7 @@ class AppLayout:
             on_toggle_theme=on_toggle_theme,
             on_notifications=lambda e: print("Notificacoes clicadas"),
             on_logout=on_logout,
+            on_navigate=on_navigate,
             tokens=self.tokens,
         )
 

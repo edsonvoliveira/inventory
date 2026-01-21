@@ -74,5 +74,7 @@ class SideMenu:
     def update(self, expanded: bool, current_route: str):
         self.list_column.controls.clear()
         for secao in self.sections:
+            if secao.get("hidden"):
+                continue
             self.list_column.controls.append(self._criar_item_menu(secao, expanded, current_route))
         self.container.width = 220 if expanded else 80

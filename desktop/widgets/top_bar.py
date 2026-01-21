@@ -13,7 +13,7 @@ from desktop.core.theme import ThemeTokens
 
 
 class TopBar:
-    def __init__(self, on_help, on_toggle_theme, on_notifications, on_logout, tokens: ThemeTokens):
+    def __init__(self, on_help, on_toggle_theme, on_notifications, on_logout, on_navigate, tokens: ThemeTokens):
         self.tokens = tokens
 
         self.title = ft.Text(
@@ -48,7 +48,11 @@ class TopBar:
         )
         self.user_menu = ft.PopupMenuButton(
             content=self.avatar,
-            items=[ft.PopupMenuItem(text="Logout", on_click=on_logout)],
+            items=[
+                ft.PopupMenuItem(text="profile", data="/profile", on_click=on_navigate),
+                ft.PopupMenuItem(),
+                ft.PopupMenuItem(text="Logout", on_click=on_logout),
+            ],
         )
         self.container = ft.Container(
             height=60,

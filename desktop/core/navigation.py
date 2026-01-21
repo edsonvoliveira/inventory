@@ -26,6 +26,7 @@ from desktop.views.management.location_view import render_location_view
 from desktop.views.management.product_barcode_view import render_product_barcode_view
 from desktop.views.management.product_category_view import render_product_category_view
 from desktop.views.management.product_view import render_product_view
+from desktop.views.management.profile_view import render_profile_view
 from desktop.views.management.zones_view import render_zones_view
 from desktop.views.settings.config_view import render_config_view
 
@@ -93,5 +94,13 @@ NAV_ITEMS = [
         "rota": "/config",
         "protected": True,
         "factory": render_config_view,
+    },
+    {
+        "icone": ft.Icons.PERSON,
+        "nome": "profile",
+        "rota": "/profile",
+        "protected": True,
+        "hidden": True,
+        "factory": render_profile_view,
     },
 ]

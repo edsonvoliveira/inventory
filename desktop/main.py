@@ -10,6 +10,8 @@ Responsibilities:
 """
 
 import flet as ft
+from pathlib import Path
+from dotenv import load_dotenv
 from desktop.core.app_state import AppState
 from desktop.core.auth_service import AuthService
 from desktop.core.layout import AppLayout
@@ -18,6 +20,14 @@ from desktop.core.sync_service import get_scheduler
 from desktop.core.session_service import SessionService
 from desktop.bootstrap.bootstrap import bootstrap_app
 from desktop.views.auth.login_view import LoginView
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DESKTOP_ENV = REPO_ROOT / "desktop" / ".env"
+BACKEND_ENV = REPO_ROOT / "backend" / ".env"
+if DESKTOP_ENV.exists():
+    load_dotenv(DESKTOP_ENV)
+elif BACKEND_ENV.exists():
+    load_dotenv(BACKEND_ENV)
 
 bootstrap_app()
 
