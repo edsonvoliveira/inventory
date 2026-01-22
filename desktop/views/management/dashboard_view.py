@@ -125,6 +125,23 @@ def _fetch_context():
 
 
 def render_dashboard_view(page: ft.Page, on_refresh):
+    timer_key = "dashboard_refresh_timer"
+    if hasattr(ft, "Timer"):
+        try:
+            timer = page.session.get(timer_key)
+            if timer is None:
+                def _on_tick(_e):
+                    if page.route == "/":
+                        on_refresh(None)
+
+                timer = ft.Timer(interval=15000, on_tick=_on_tick)
+                page.session.set(timer_key, timer)
+                page.overlay.append(timer)
+
+            timer.start()
+        except Exception:
+            pass
+
     data = _fetch_context()
 
     def _sync_now(e):

@@ -16,7 +16,7 @@ from desktop.core.app_state import AppState
 from desktop.core.auth_service import AuthService
 from desktop.core.layout import AppLayout
 from desktop.core.router import AppRouter
-from desktop.core.sync_service import get_scheduler
+from desktop.core.sync_service import SyncService, _get_app_logger, get_scheduler
 from desktop.core.session_service import SessionService
 from desktop.bootstrap.bootstrap import bootstrap_app
 from desktop.views.auth.login_view import LoginView
@@ -45,12 +45,19 @@ def main(page: ft.Page):
 
     # ---------------- Funções de Autenticação ---------------- #
     def on_login_success(e):
+        _get_app_logger().info("event=ui_login_redirect")
         scheduler.start()
         page.go("/")
 
     def on_logout(e):
+        _get_app_logger().info("event=ui_logout")
         app_state.clear_session()
         SessionService.clear_session()
+        _cleanup_timers(None)
+        try:
+            SyncService().run()
+        except Exception:
+            pass
         scheduler.stop()
         # Redireciona para a tela de login
         page.go("/login")
@@ -64,6 +71,13 @@ def main(page: ft.Page):
     def navegar(e):
         page.go(e.control.data)
 
+    def _cleanup_timers(e):
+        _get_app_logger().info("event=app_shutdown_cleanup")
+        timer = page.session.get("dashboard_refresh_timer")
+        if timer is not None:
+            timer.stop()
+        scheduler.stop()
+
     # ---------------- Layout Principal ----------------
     layout = AppLayout(page, alternar_tema, navegar, on_logout)
     
@@ -73,6 +87,7 @@ def main(page: ft.Page):
 
     router = AppRouter(page, app_state, layout, login_screen)
     page.on_route_change = router.on_route_change
+    page.on_disconnect = _cleanup_timers
 
     # Inicia com a rota de login
     page.go(page.route or "/login")

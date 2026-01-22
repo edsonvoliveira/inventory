@@ -15,6 +15,7 @@ from desktop.core.strings import (
     DIALOG_ERROR_TITLE,
     DIALOG_SUCCESS_TITLE,
 )
+from desktop.core.sync_service import _get_app_logger
 
 
 def form_column(controls: list[ft.Control], spacing: int = 10):
@@ -30,14 +31,21 @@ def open_form_dialog(
     width: int = 500,
     height: int = 250,
 ):
+    app_logger = _get_app_logger()
+
     def handle_submit(e):
         on_submit(e, dlg)
+
+    def _close_dialog():
+        dlg.open = False
+        page.update()
+        app_logger.info("event=ui_dialog_close title=%s", title)
 
     dlg = ft.AlertDialog(
         title=ft.Text(title),
         content=ft.Container(content=content, width=width, height=height),
         actions=[
-            ft.TextButton(BTN_CANCEL, on_click=lambda e: [setattr(dlg, "open", False), page.update()]),
+            ft.TextButton(BTN_CANCEL, on_click=lambda e: _close_dialog()),
             ft.ElevatedButton(submit_label, on_click=handle_submit),
         ],
         actions_alignment=ft.MainAxisAlignment.END,
@@ -47,6 +55,7 @@ def open_form_dialog(
     page.overlay.append(dlg)
     dlg.open = True
     page.update()
+    app_logger.info("event=ui_dialog_open title=%s", title)
     return dlg
 
 
@@ -80,16 +89,19 @@ def confirm_dialog(
     on_confirm,
     title: str = DIALOG_CONFIRM_TITLE,
 ):
+    app_logger = _get_app_logger()
+
     def handle_confirm(e):
         dlg.open = False
         page.update()
+        app_logger.info("event=ui_dialog_confirm title=%s", title)
         on_confirm()
 
     dlg = ft.AlertDialog(
         title=ft.Text(title),
         content=ft.Text(message),
         actions=[
-            ft.TextButton(BTN_CANCEL, on_click=lambda e: [setattr(dlg, "open", False), page.update()]),
+            ft.TextButton(BTN_CANCEL, on_click=lambda e: [setattr(dlg, "open", False), page.update(), app_logger.info("event=ui_dialog_cancel title=%s", title)]),
             ft.ElevatedButton(BTN_CONFIRM, on_click=handle_confirm),
         ],
         actions_alignment=ft.MainAxisAlignment.END,
@@ -99,6 +111,7 @@ def confirm_dialog(
     page.overlay.append(dlg)
     dlg.open = True
     page.update()
+    app_logger.info("event=ui_dialog_open title=%s", title)
     return dlg
 
 
@@ -107,10 +120,11 @@ def error_dialog(
     message: str,
     title: str = DIALOG_ERROR_TITLE,
 ):
+    app_logger = _get_app_logger()
     dlg = ft.AlertDialog(
         title=ft.Text(title),
         content=ft.Text(message),
-        actions=[ft.TextButton(BTN_CANCEL, on_click=lambda e: [setattr(dlg, "open", False), page.update()])],
+        actions=[ft.TextButton(BTN_CANCEL, on_click=lambda e: [setattr(dlg, "open", False), page.update(), app_logger.info("event=ui_dialog_close title=%s", title)])],
         actions_alignment=ft.MainAxisAlignment.END,
         shape=ft.RoundedRectangleBorder(radius=10),
     )
@@ -118,6 +132,7 @@ def error_dialog(
     page.overlay.append(dlg)
     dlg.open = True
     page.update()
+    app_logger.info("event=ui_dialog_open title=%s", title)
     return dlg
 
 
@@ -126,10 +141,11 @@ def success_dialog(
     message: str,
     title: str = DIALOG_SUCCESS_TITLE,
 ):
+    app_logger = _get_app_logger()
     dlg = ft.AlertDialog(
         title=ft.Text(title),
         content=ft.Text(message),
-        actions=[ft.TextButton(BTN_CONFIRM, on_click=lambda e: [setattr(dlg, "open", False), page.update()])],
+        actions=[ft.TextButton(BTN_CONFIRM, on_click=lambda e: [setattr(dlg, "open", False), page.update(), app_logger.info("event=ui_dialog_close title=%s", title)])],
         actions_alignment=ft.MainAxisAlignment.END,
         shape=ft.RoundedRectangleBorder(radius=10),
     )
@@ -137,4 +153,5 @@ def success_dialog(
     page.overlay.append(dlg)
     dlg.open = True
     page.update()
+    app_logger.info("event=ui_dialog_open title=%s", title)
     return dlg

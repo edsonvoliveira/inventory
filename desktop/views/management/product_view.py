@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 import flet as ft
 
 from desktop.core.product_service import ProductService
+from desktop.core.sync_service import _get_sync_logger
 from desktop.core.ui_constants import ICON_ADD, ICON_DELETE, ICON_EDIT
 from desktop.core.strings import (
     BTN_CREATE,
@@ -40,6 +41,7 @@ def render_product_view(page: ft.Page, on_refresh):
     coluna = ft.Column(expand=True, spacing=10)
     list_view = ft.ListView(expand=True, spacing=8)
     product_service = ProductService()
+    sync_logger = _get_sync_logger()
     products_result = product_service.list()
     produtos = products_result.data or []
 
@@ -76,6 +78,13 @@ def render_product_view(page: ft.Page, on_refresh):
                 unit_of_measure,
             )
             if not result.ok:
+                sync_logger.info(
+                    "event=ui_product_create_failed error_code=%s message=%s sku=%s name=%s",
+                    result.error_code,
+                    result.message,
+                    sku,
+                    name,
+                )
                 if result.error_code == "VALIDATION_ERROR":
                     dlg_required_msg.value = "Informacoes obrigatorias"
                     _set_required_styles(True)
@@ -238,6 +247,12 @@ def render_product_view(page: ft.Page, on_refresh):
                     dlg_unit_of_measure.value or "",
                 )
                 if not result.ok:
+                    sync_logger.info(
+                        "event=ui_product_update_failed error_code=%s message=%s id=%s",
+                        result.error_code,
+                        result.message,
+                        produto.get("id"),
+                    )
                     if result.error_code == "VALIDATION_ERROR":
                         dlg_required_msg.value = "Informacoes obrigatorias"
                         _set_required_styles(True)

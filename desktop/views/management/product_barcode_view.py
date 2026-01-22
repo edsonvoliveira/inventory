@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 import flet as ft
 
 from desktop.core.product_barcode_service import ProductBarcodeService
+from desktop.core.sync_service import _get_sync_logger
 from desktop.core.strings import (
     BARCODE_ADD,
     BARCODE_ADD_TITLE,
@@ -45,6 +46,7 @@ def render_product_barcode_view(page: ft.Page, on_refresh):
     coluna = ft.Column(expand=True, spacing=10)
     list_view = ft.ListView(expand=True, spacing=8)
     service = ProductBarcodeService()
+    sync_logger = _get_sync_logger()
     result = service.list()
     codigos = result.data or []
     def _on_products_changed(_payload):
@@ -94,6 +96,13 @@ def render_product_barcode_view(page: ft.Page, on_refresh):
                 dlg_description.value,
             )
             if not result.ok:
+                sync_logger.info(
+                    "event=ui_product_barcode_create_failed error_code=%s message=%s product=%s barcode=%s",
+                    result.error_code,
+                    result.message,
+                    dlg_product.value,
+                    dlg_barcode.value,
+                )
                 if result.error_code == "VALIDATION_ERROR":
                     dlg_required_msg.value = "Informacoes obrigatorias"
                     _set_required_styles(True)
@@ -241,6 +250,12 @@ def render_product_barcode_view(page: ft.Page, on_refresh):
                     dlg_description.value,
                 )
                 if not result.ok:
+                    sync_logger.info(
+                        "event=ui_product_barcode_update_failed error_code=%s message=%s uuid=%s",
+                        result.error_code,
+                        result.message,
+                        codigo.get("uuid"),
+                    )
                     if result.error_code == "VALIDATION_ERROR":
                         dlg_required_msg.value = "Informacoes obrigatorias"
                         _set_required_styles(True)

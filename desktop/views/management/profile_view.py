@@ -16,6 +16,7 @@ import flet as ft
 import requests
 
 from desktop.core.session_service import SessionService
+from desktop.core.sync_service import _get_app_logger
 from desktop.data.db.connection import get_connection
 
 
@@ -92,16 +93,19 @@ def render_profile_view(page: ft.Page, on_refresh):
     feedback = ft.Text("", color=ft.Colors.RED_400, size=12)
 
     def _change_password(e):
+        app_logger = _get_app_logger()
         feedback.value = ""
         new_password = (password_field.value or "").strip()
         confirm_password = (confirm_field.value or "").strip()
         if not new_password or not confirm_password:
             feedback.value = "Informe e confirme a senha."
             feedback.update()
+            app_logger.info("event=ui_password_change_failed reason=missing_fields")
             return
         if new_password != confirm_password:
             feedback.value = "As senhas nao conferem."
             feedback.update()
+            app_logger.info("event=ui_password_change_failed reason=mismatch")
             return
 
         supabase_url = (os.getenv("SUPABASE_URL") or "").strip()
@@ -111,10 +115,12 @@ def render_profile_view(page: ft.Page, on_refresh):
         if not supabase_url or not supabase_key:
             feedback.value = "SUPABASE_URL/ANON_KEY nao configurados."
             feedback.update()
+            app_logger.info("event=ui_password_change_failed reason=missing_supabase_env")
             return
         if not jwt_token:
             feedback.value = "Token do utilizador nao disponivel."
             feedback.update()
+            app_logger.info("event=ui_password_change_failed reason=missing_token")
             return
 
         url = f"{supabase_url.rstrip('/')}/auth/v1/user"
@@ -128,6 +134,7 @@ def render_profile_view(page: ft.Page, on_refresh):
         except requests.RequestException:
             feedback.value = "Erro ao comunicar com o Supabase."
             feedback.update()
+            app_logger.info("event=ui_password_change_failed reason=request_error")
             return
 
         if resp.ok:
@@ -138,6 +145,7 @@ def render_profile_view(page: ft.Page, on_refresh):
             feedback.color = ft.Colors.GREEN_400
             feedback.value = "Senha alterada com sucesso."
             feedback.update()
+            app_logger.info("event=ui_password_change_success")
             return
 
         try:
@@ -148,6 +156,7 @@ def render_profile_view(page: ft.Page, on_refresh):
         feedback.color = ft.Colors.RED_400
         feedback.value = error or "Nao foi possivel alterar a senha."
         feedback.update()
+        app_logger.info("event=ui_password_change_failed reason=api_error status=%s", resp.status_code)
 
     info = ft.Column(
         [

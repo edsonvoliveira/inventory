@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 import flet as ft
 
 from desktop.core.product_category_service import ProductCategoryService
+from desktop.core.sync_service import _get_sync_logger
 from desktop.core.strings import (
     BTN_CREATE,
     BTN_SAVE,
@@ -31,6 +32,7 @@ def render_product_category_view(page: ft.Page, on_refresh):
     coluna = ft.Column(expand=True, spacing=10)
     list_view = ft.ListView(expand=True, spacing=8)
     service = ProductCategoryService()
+    sync_logger = _get_sync_logger()
     result = service.list()
     categorias = result.data or []
 
@@ -59,6 +61,12 @@ def render_product_category_view(page: ft.Page, on_refresh):
                 dlg_description.value,
             )
             if not result.ok:
+                sync_logger.info(
+                    "event=ui_product_category_create_failed error_code=%s message=%s code=%s",
+                    result.error_code,
+                    result.message,
+                    dlg_code.value,
+                )
                 if result.error_code == "VALIDATION_ERROR":
                     dlg_required_msg.value = "Informacoes obrigatorias"
                     _set_required_styles(True)
@@ -197,6 +205,12 @@ def render_product_category_view(page: ft.Page, on_refresh):
                     dlg_description.value,
                 )
                 if not result.ok:
+                    sync_logger.info(
+                        "event=ui_product_category_update_failed error_code=%s message=%s uuid=%s",
+                        result.error_code,
+                        result.message,
+                        categoria.get("uuid"),
+                    )
                     if result.error_code == "VALIDATION_ERROR":
                         dlg_required_msg.value = "Informacoes obrigatorias"
                         _set_required_styles(True)

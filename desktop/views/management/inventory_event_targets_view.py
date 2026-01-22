@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 import flet as ft
 
 from desktop.core.inventory_event_target_service import InventoryEventTargetService
+from desktop.core.sync_service import _get_sync_logger
 from desktop.core.strings import (
     BTN_CREATE,
     BTN_SAVE,
@@ -58,6 +59,7 @@ def render_inventory_event_targets_view(page: ft.Page, on_refresh):
     coluna = ft.Column(expand=True, spacing=10)
     list_view = ft.ListView(expand=True, spacing=8)
     service = InventoryEventTargetService()
+    sync_logger = _get_sync_logger()
     result = service.list()
     targets = result.data or []
     def _on_products_changed(_payload):
@@ -107,6 +109,13 @@ def render_inventory_event_targets_view(page: ft.Page, on_refresh):
                 dlg_expected_qty.value,
             )
             if not result.ok:
+                sync_logger.info(
+                    "event=ui_event_target_create_failed error_code=%s message=%s event=%s product=%s",
+                    result.error_code,
+                    result.message,
+                    dlg_event.value,
+                    dlg_product.value,
+                )
                 if result.error_code == "VALIDATION_ERROR":
                     dlg_required_msg.value = "Informacoes obrigatorias"
                     _set_required_styles(True)
@@ -262,6 +271,12 @@ def render_inventory_event_targets_view(page: ft.Page, on_refresh):
                     dlg_expected_qty.value,
                 )
                 if not result.ok:
+                    sync_logger.info(
+                        "event=ui_event_target_update_failed error_code=%s message=%s uuid=%s",
+                        result.error_code,
+                        result.message,
+                        target.get("uuid"),
+                    )
                     if result.error_code == "VALIDATION_ERROR":
                         dlg_required_msg.value = "Informacoes obrigatorias"
                         _set_required_styles(True)

@@ -44,6 +44,24 @@ def _get_sync_logger() -> logging.Logger:
     return sync_logger
 
 
+def _get_app_logger() -> logging.Logger:
+    app_logger = logging.getLogger("app")
+    if any(isinstance(h, logging.FileHandler) for h in app_logger.handlers):
+        return app_logger
+
+    base_dir = Path(__file__).resolve().parents[2]
+    log_dir = base_dir / "z_files" / "tests_results"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "app.log"
+
+    handler = logging.FileHandler(log_file, encoding="utf-8")
+    formatter = logging.Formatter("%(asctime)s %(message)s")
+    handler.setFormatter(formatter)
+    app_logger.addHandler(handler)
+    app_logger.setLevel(logging.INFO)
+    return app_logger
+
+
 @dataclass
 class SyncResult:
     did_bootstrap: bool

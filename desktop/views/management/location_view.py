@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 import flet as ft
 
 from desktop.core.location_service import LocationService
+from desktop.core.sync_service import _get_sync_logger
 from desktop.core.ui_constants import ICON_ADD, ICON_DELETE, ICON_EDIT
 from desktop.core.strings import (
     BTN_CREATE,
@@ -30,6 +31,7 @@ def render_location_view(page: ft.Page, on_refresh):
     coluna = ft.Column(expand=True, spacing=10)
     list_view = ft.ListView(expand=True, spacing=8)
     service = LocationService()
+    sync_logger = _get_sync_logger()
     result = service.list()
     locais = result.data or []
 
@@ -46,6 +48,12 @@ def render_location_view(page: ft.Page, on_refresh):
             nome = dlg_name.value or ""
             result = service.create(nome)
             if not result.ok:
+                sync_logger.info(
+                    "event=ui_location_create_failed error_code=%s message=%s name=%s",
+                    result.error_code,
+                    result.message,
+                    nome,
+                )
                 if result.error_code == "VALIDATION_ERROR":
                     dlg_required_msg.value = "Informacoes obrigatorias"
                     dlg_name.border_color = error_color
@@ -171,6 +179,12 @@ def render_location_view(page: ft.Page, on_refresh):
                     (dlg_name.value or "").strip(),
                 )
                 if not result.ok:
+                    sync_logger.info(
+                        "event=ui_location_update_failed error_code=%s message=%s id=%s",
+                        result.error_code,
+                        result.message,
+                        local.get("id"),
+                    )
                     if result.error_code == "VALIDATION_ERROR":
                         dlg_required_msg.value = "Informacoes obrigatorias"
                         dlg_name.border_color = error_color

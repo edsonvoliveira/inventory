@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 import flet as ft
 
 from desktop.core.zones_service import ZonesService
+from desktop.core.sync_service import _get_sync_logger
 from desktop.core.strings import (
     BTN_CREATE,
     BTN_SAVE,
@@ -46,6 +47,7 @@ def render_zones_view(page: ft.Page, on_refresh):
     coluna = ft.Column(expand=True, spacing=10)
     list_view = ft.ListView(expand=True, spacing=8)
     service = ZonesService()
+    sync_logger = _get_sync_logger()
     result = service.list()
     zonas = result.data or []
     def _on_events_changed(_payload):
@@ -115,6 +117,13 @@ def render_zones_view(page: ft.Page, on_refresh):
                 dlg_lock_status.value,
             )
             if not result.ok:
+                sync_logger.info(
+                    "event=ui_zone_create_failed error_code=%s message=%s event=%s name=%s",
+                    result.error_code,
+                    result.message,
+                    dlg_event.value,
+                    dlg_name.value,
+                )
                 if result.error_code == "VALIDATION_ERROR":
                     dlg_required_msg.value = "Informacoes obrigatorias"
                     _set_required_styles(True)
@@ -304,6 +313,12 @@ def render_zones_view(page: ft.Page, on_refresh):
                     dlg_lock_status.value,
                 )
                 if not result.ok:
+                    sync_logger.info(
+                        "event=ui_zone_update_failed error_code=%s message=%s uuid=%s",
+                        result.error_code,
+                        result.message,
+                        zona.get("uuid"),
+                    )
                     if result.error_code == "VALIDATION_ERROR":
                         dlg_required_msg.value = "Informacoes obrigatorias"
                         _set_required_styles(True)

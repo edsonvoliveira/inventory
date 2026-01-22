@@ -11,6 +11,7 @@ import flet as ft
 from desktop.core.app_state import AppState
 from desktop.core.layout import AppLayout
 from desktop.core.navigation import NAV_ITEMS
+from desktop.core.sync_service import _get_app_logger
 from desktop.utils.event_bus import event_bus
 from desktop.utils.notifications import show_auto_refresh
 from desktop.views.auth.login_view import LoginView
@@ -41,6 +42,10 @@ class AppRouter:
         try:
             route = self.page.route or "/"
             entry = self._get_entry(route)
+            timer = self.page.session.get("dashboard_refresh_timer")
+            if timer is not None and route != "/":
+                timer.stop()
+            _get_app_logger().info("event=ui_route_change route=%s", route)
 
             # Route protection
             if entry and entry.get("protected") and not self.app_state.is_authenticated and route != "/login":
@@ -82,6 +87,7 @@ class AppRouter:
             self._handle_error()
 
     def _handle_error(self) -> None:
+        _get_app_logger().info("event=ui_error_unexpected")
         self.page.snack_bar = ft.SnackBar(
             content=ft.Text("Erro inesperado. Tente novamente."),
             bgcolor=ft.Colors.RED_400,

@@ -20,6 +20,7 @@ from desktop.core.strings import (
     LOGIN_TITLE,
 )
 from desktop.core.theme import ThemeTokens, get_theme_tokens
+from desktop.core.sync_service import _get_app_logger
 
 
 class LoginView(ft.View):
@@ -55,6 +56,8 @@ class LoginView(ft.View):
             width=300,
             prefix_icon=ft.Icons.LOCK_OUTLINE,
         )
+        self.email_field.on_submit = self._handle_login
+        self.password_field.on_submit = self._handle_login
         # Control para exibir mensagens de erro/status
         self.status_message = ft.Text("", color=self.tokens.accent)
 
@@ -102,6 +105,7 @@ class LoginView(ft.View):
 
     def _handle_login(self, e):
         """Lógica de autenticação e redirecionamento."""
+        app_logger = _get_app_logger()
         email = (self.email_field.value or "").strip()
         password = (self.password_field.value or "").strip()
         
@@ -113,13 +117,16 @@ class LoginView(ft.View):
         if not email or not password:
             self.status_message.value = LOGIN_REQUIRED
             self.page.update()
+            app_logger.info("event=ui_login_failed reason=missing_fields")
             return
             
         result = self.auth_service.authenticate(email, password)
         if result.ok:
             self.app_state.set_session(email=email)
+            app_logger.info("event=ui_login_success email=%s", email)
             self.on_login_success(e)
         else:
             self.status_message.value = result.message or LOGIN_INVALID
             self.password_field.value = ""
             self.page.update()
+            app_logger.info("event=ui_login_failed reason=%s email=%s", result.error_code, email)

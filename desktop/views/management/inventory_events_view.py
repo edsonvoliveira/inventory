@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 import flet as ft
 
 from desktop.core.inventory_event_service import InventoryEventService
+from desktop.core.sync_service import _get_sync_logger
 from desktop.core.strings import (
     BTN_CREATE,
     BTN_SAVE,
@@ -111,6 +112,14 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
                 dlg_tol_abs.value,
             )
             if not result.ok:
+                _get_sync_logger().info(
+                    "event=ui_inventory_event_create_failed error_code=%s message=%s location=%s title=%s status=%s",
+                    result.error_code,
+                    result.message,
+                    dlg_location.value,
+                    dlg_title.value,
+                    dlg_status.value,
+                )
                 if result.error_code == "VALIDATION_ERROR":
                     dlg_required_msg.value = "Informacoes obrigatorias"
                     _set_required_styles(True)
@@ -120,6 +129,9 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
                     dlg_required_msg.update()
                 elif result.error_code == "REQUIRED_COUNTS_NOT_MET":
                     dlg_required_msg.value = "Required counts nao atingido para fechar o evento."
+                    dlg_required_msg.update()
+                elif result.error_code == "OPERATION_NOT_ALLOWED_FOR_ORIGIN":
+                    dlg_required_msg.value = "Operacao nao permitida."
                     dlg_required_msg.update()
                 return
             dlg_required_msg.value = ""
@@ -299,6 +311,13 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
                     dlg_tol_abs.value,
                 )
                 if not result.ok:
+                    _get_sync_logger().info(
+                        "event=ui_inventory_event_update_failed error_code=%s message=%s uuid=%s status=%s",
+                        result.error_code,
+                        result.message,
+                        evento.get("uuid") or "",
+                        dlg_status.value,
+                    )
                     if result.error_code == "VALIDATION_ERROR":
                         dlg_required_msg.value = "Informacoes obrigatorias"
                         _set_required_styles(True)
@@ -311,6 +330,9 @@ def render_inventory_events_view(page: ft.Page, on_refresh):
                         dlg_required_msg.update()
                     elif result.error_code == "EVENT_READ_ONLY":
                         dlg_required_msg.value = "Evento fechado nao permite edicao."
+                        dlg_required_msg.update()
+                    elif result.error_code == "OPERATION_NOT_ALLOWED_FOR_ORIGIN":
+                        dlg_required_msg.value = "Operacao nao permitida."
                         dlg_required_msg.update()
                     return
                 dlg_required_msg.value = ""
