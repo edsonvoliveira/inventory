@@ -10,6 +10,7 @@ Responsibilities:
 """
 
 import flet as ft
+import asyncio
 from pathlib import Path
 from dotenv import load_dotenv
 from desktop.core.app_state import AppState
@@ -31,8 +32,29 @@ elif BACKEND_ENV.exists():
 
 bootstrap_app()
 
+def _suppress_executor_shutdown(loop, context):
+    exc = context.get("exception")
+    if isinstance(exc, RuntimeError) and "cannot schedule new futures after shutdown" in str(exc):
+        return
+    loop.default_exception_handler(context)
+
+
+class _AppEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
+    def new_event_loop(self):
+        loop = super().new_event_loop()
+        loop.set_exception_handler(_suppress_executor_shutdown)
+        return loop
+
+
+asyncio.set_event_loop_policy(_AppEventLoopPolicy())
+
 # ---------------- MAIN ---------------- #
 def main(page: ft.Page):
+    try:
+        loop = asyncio.get_event_loop()
+        loop.set_exception_handler(_suppress_executor_shutdown)
+    except RuntimeError:
+        pass
     app_state = AppState()
     auth_service = AuthService()
     scheduler = get_scheduler()

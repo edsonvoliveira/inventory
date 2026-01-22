@@ -10,6 +10,7 @@ import flet as ft
 
 from mobile.core.app_state import AppState
 from mobile.core.navigation import ROUTES
+from mobile.core.sync_service import _get_app_logger
 from mobile.data.queries import (
     add_local_inventory_item,
     count_distinct_products_for_zone,
@@ -24,6 +25,7 @@ from mobile.utils.validators import parse_float
 
 
 def counting_page_content(page: ft.Page, state: AppState):
+    app_logger = _get_app_logger()
     zone_id = state.selected_zone
     event_id = state.selected_event
     zone_name = state.selected_zone_name or "Zona"
@@ -33,12 +35,14 @@ def counting_page_content(page: ft.Page, state: AppState):
 
     if not zone_id or not event_id:
         toast(page, "Nenhuma zona/evento selecionada!", success=False)
-        page.go(ROUTES["dashboard"])
+        app_logger.info("event=ui_counting_open_failed reason=missing_zone_or_event")
+        page.go(ROUTES["inventory"])
         return ft.Column([])
 
     is_read_only = is_zone_closed(zone_id) or is_event_closed(event_id)
     if is_read_only:
         toast(page, "Zona/Evento fechado. Contagem bloqueada.", success=False)
+        app_logger.info("event=ui_counting_open_failed reason=read_only")
         page.go(ROUTES["zone_details"])
         return ft.Column([])
 
@@ -50,7 +54,10 @@ def counting_page_content(page: ft.Page, state: AppState):
     scan_button = ft.IconButton(
         icon=ft.Icons.QR_CODE_SCANNER,
         icon_size=26,
-        on_click=lambda e: toast(page, "Scanner ainda não implementado!", success=False),
+        on_click=lambda e: [
+            toast(page, "Scanner ainda não implementado!", success=False),
+            app_logger.info("event=ui_scanner_unavailable"),
+        ],
     )
     product_list = ft.ListView(expand=True, spacing=8, padding=5, auto_scroll=False)
 
@@ -102,6 +109,7 @@ def counting_page_content(page: ft.Page, state: AppState):
                 qty = parse_float((qty_field.value or "0").replace(",", "."))
                 if qty is None or qty <= 0:
                     toast(page, "Quantidade inválida!", success=False)
+                    app_logger.info("event=ui_counting_qty_invalid value=%s", qty_field.value)
                     return
 
                 add_local_inventory_item(
@@ -111,6 +119,13 @@ def counting_page_content(page: ft.Page, state: AppState):
                     scanned_code=product["sku"],
                     product_id=product["id"],
                     qty_counted=qty,
+                )
+                app_logger.info(
+                    "event=ui_counting_item_saved zone=%s event=%s product=%s qty=%s",
+                    zone_id,
+                    event_id,
+                    product.get("id"),
+                    qty,
                 )
 
                 state.counted_product_ids_cache.add(product["id"])

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any, Mapping
 
@@ -57,6 +58,7 @@ class AuthSession:
         return token
 
     def _store_tokens(self, data: Mapping[str, Any]) -> None:
+        app_logger = logging.getLogger("app")
         access_token = str(data.get("access_token") or "")
         refresh_token = str(data.get("refresh_token") or "")
         expires_in = data.get("expires_in")
@@ -76,9 +78,15 @@ class AuthSession:
             set_meta("expires_in", str(expires_in_int))
         if expires_at_int is not None:
             set_meta("expires_at", str(expires_at_int))
+        app_logger.info(
+            "event=auth_tokens_set expires_at=%s",
+            expires_at_int if expires_at_int is not None else "n/a",
+        )
 
     def logout(self) -> None:
+        app_logger = logging.getLogger("app")
         delete_meta("jwt_token")
         delete_meta("refresh_token")
         delete_meta("expires_in")
         delete_meta("expires_at")
+        app_logger.info("event=auth_tokens_cleared")

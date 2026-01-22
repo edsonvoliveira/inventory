@@ -8,10 +8,12 @@ Responsibilities:
 
 ROUTES = {
     "login": "/login",
-    "dashboard": "/dashboard",
+    "dashboard": "/",
+    "inventory": "/inventory",
     "profile": "/profile",
+    "settings": "/settings",
     "zone_details": "/zone_details",
     "counting": "/counting",
 }
 
-BOTTOM_NAV_ROUTES = [ROUTES["dashboard"], ROUTES["profile"]]
+BOTTOM_NAV_ROUTES = [ROUTES["dashboard"], ROUTES["inventory"], ROUTES["settings"]]

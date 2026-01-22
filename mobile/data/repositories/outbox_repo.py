@@ -27,12 +27,21 @@ _ZONE_USER_PROGRESS_ALLOWLIST = {
 }
 
 
-def add(table_name: str, operation: str, record_uuid: str, payload: dict) -> int:
+def add(
+    table_name: str,
+    operation: str,
+    record_uuid: str,
+    payload: dict,
+    *,
+    conn=None,
+) -> int:
     if table_name not in _ALLOWED_MOBILE_ENTITIES:
         raise RuntimeError("outbox entity not allowed for mobile")
     if table_name == "zone_user_progress":
         payload = {k: v for k, v in payload.items() if k in _ZONE_USER_PROGRESS_ALLOWLIST}
-    conn = get_connection()
+    owns_conn = conn is None
+    if owns_conn:
+        conn = get_connection()
     cur = conn.execute(
         """
         INSERT INTO outbox_local (table_name, operation, record_uuid, payload)
@@ -40,9 +49,11 @@ def add(table_name: str, operation: str, record_uuid: str, payload: dict) -> int
         """,
         (table_name, operation, record_uuid, json.dumps(payload)),
     )
-    conn.commit()
+    if owns_conn:
+        conn.commit()
     row_id = cur.lastrowid
-    conn.close()
+    if owns_conn:
+        conn.close()
     return row_id
 
 

@@ -7,12 +7,12 @@ Responsibilities:
 
 import json
 import os
-import sqlite3
 import threading
 import uuid
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 
+from mobile.data.db.connection import get_connection
 from mobile.data.db.schema import SCHEMA_SQL, SCHEMA_VERSION
 from mobile.data.migrations import ensure_meta_table, get_schema_version, migrate_schema, set_schema_version
 from mobile.data.repositories import outbox_repo
@@ -26,7 +26,7 @@ _lock = threading.Lock()
 
 
 def get_conn():
-    return sqlite3.connect(DB_PATH, check_same_thread=False)
+    return get_connection()
 
 
 def init_db():
@@ -210,7 +210,7 @@ def add_local_inventory_item(
             "device_timestamp": ts,
             "source": "mobile",
         }
-        outbox_repo.add("inventory_items", "insert", record_uuid, payload)
+        outbox_repo.add("inventory_items", "insert", record_uuid, payload, conn=conn)
         conn.commit()
 
 

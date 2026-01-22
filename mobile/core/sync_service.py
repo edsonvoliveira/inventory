@@ -8,10 +8,12 @@ Responsibilities:
 
 from dataclasses import dataclass
 from typing import Optional
+from datetime import datetime, timezone
 import logging
 import threading
 from pathlib import Path
 from uuid import uuid4
+from typing import Callable
 
 from mobile.app_core_container import build_services
 from mobile.core.auth_session import AuthSession
@@ -19,6 +21,8 @@ from mobile.bootstrap.bootstrap import wipe_local_database
 from mobile.data.repositories.app_meta_repo import get_meta, set_meta
 
 logger = logging.getLogger(__name__)
+SYNC_INTERVAL_META_KEY = "sync_interval_seconds"
+DEFAULT_SYNC_INTERVAL_SECONDS = 180
 
 
 def _get_sync_logger() -> logging.Logger:
@@ -37,6 +41,24 @@ def _get_sync_logger() -> logging.Logger:
     sync_logger.addHandler(handler)
     sync_logger.setLevel(logging.INFO)
     return sync_logger
+
+
+def _get_app_logger() -> logging.Logger:
+    app_logger = logging.getLogger("app")
+    if any(isinstance(h, logging.FileHandler) for h in app_logger.handlers):
+        return app_logger
+
+    base_dir = Path(__file__).resolve().parents[2]
+    log_dir = base_dir / "z_files" / "tests_results"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "app.log"
+
+    handler = logging.FileHandler(log_file, encoding="utf-8")
+    formatter = logging.Formatter("%(asctime)s %(message)s")
+    handler.setFormatter(formatter)
+    app_logger.addHandler(handler)
+    app_logger.setLevel(logging.INFO)
+    return app_logger
 
 
 @dataclass
@@ -74,6 +96,8 @@ class SyncService:
             result.pulled,
             result.error,
         )
+        if not result.error:
+            set_meta("last_push_at", datetime.now(timezone.utc).isoformat())
         return SyncResult(
             did_bootstrap=result.did_bootstrap,
             push_accepted=result.push_accepted,
@@ -119,6 +143,7 @@ class SyncScheduler:
         self._interval = interval_seconds
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
+        self._on_cycle: Callable[[], None] | None = None
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -129,10 +154,49 @@ class SyncScheduler:
 
     def stop(self) -> None:
         self._stop_event.set()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=2)
 
     def _run_loop(self) -> None:
         while not self._stop_event.is_set():
             token = AuthSession().get_valid_access_token()
             if token:
                 SyncService().run()
+                if self._on_cycle is not None:
+                    try:
+                        self._on_cycle()
+                    except Exception:
+                        logger.info("event=sync_scheduler_callback_failed")
             self._stop_event.wait(self._interval)
+
+    def set_interval(self, interval_seconds: int) -> None:
+        self._interval = interval_seconds
+
+    def get_interval(self) -> int:
+        return self._interval
+
+    def restart(self) -> None:
+        self.stop()
+        self.start()
+
+    def set_on_cycle_callback(self, callback: Callable[[], None] | None) -> None:
+        self._on_cycle = callback
+
+
+_scheduler: SyncScheduler | None = None
+
+
+def get_sync_interval_seconds() -> int:
+    raw = get_meta(SYNC_INTERVAL_META_KEY)
+    try:
+        value = int(raw) if raw is not None else DEFAULT_SYNC_INTERVAL_SECONDS
+    except (TypeError, ValueError):
+        return DEFAULT_SYNC_INTERVAL_SECONDS
+    return value
+
+
+def get_scheduler() -> SyncScheduler:
+    global _scheduler
+    if _scheduler is None:
+        _scheduler = SyncScheduler(interval_seconds=get_sync_interval_seconds())
+    return _scheduler
