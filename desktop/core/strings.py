@@ -21,6 +21,7 @@ SECTION_USER = "Usuários"
 SECTION_LOCATION = "Locais"
 SECTION_PRODUCT = "Produtos"
 SECTION_CONFIG = "Configurações"
+SECTION_IMPORT = "Importar Dados"
 
 PAGE_HOME_TITLE = "Página Inicial"
 PAGE_HOME_SUBTITLE = "Bem-vindo ao IMS!"
@@ -149,3 +150,5 @@ SECTION_DASHBOARD = "Dashboard"
 FIELD_TITLE = "Titulo"
 
 DASHBOARD_TITLE = "Dashboard"
+
+IMPORT_TITLE = "Importar Dados"

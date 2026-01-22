@@ -12,6 +12,7 @@ from desktop.core.strings import (
     SECTION_CONFIG,
     SECTION_DASHBOARD,
     SECTION_EVENT_TARGET,
+    SECTION_IMPORT,
     SECTION_INVENTORY_EVENT,
     SECTION_LOCATION,
     SECTION_PRODUCT,
@@ -22,6 +23,7 @@ from desktop.core.strings import (
 from desktop.views.management.dashboard_view import render_dashboard_view
 from desktop.views.management.inventory_event_targets_view import render_inventory_event_targets_view
 from desktop.views.management.inventory_events_view import render_inventory_events_view
+from desktop.views.management.import_view import render_import_view
 from desktop.views.management.location_view import render_location_view
 from desktop.views.management.product_barcode_view import render_product_barcode_view
 from desktop.views.management.product_category_view import render_product_category_view
@@ -87,6 +89,13 @@ NAV_ITEMS = [
         "rota": "/event-targets",
         "protected": True,
         "factory": render_inventory_event_targets_view,
+    },
+    {
+        "icone": ft.Icons.UPLOAD_FILE,
+        "nome": SECTION_IMPORT,
+        "rota": "/import",
+        "protected": True,
+        "factory": render_import_view,
     },
     {
         "icone": ft.Icons.SETTINGS,
