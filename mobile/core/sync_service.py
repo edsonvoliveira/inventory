@@ -17,7 +17,7 @@ from typing import Callable
 
 from mobile.app_core_container import build_services
 from mobile.core.auth_session import AuthSession
-from mobile.bootstrap.bootstrap import wipe_local_database
+from mobile.core.company_switch_service import CompanySwitchService
 from mobile.data.repositories.app_meta_repo import get_meta, set_meta
 
 logger = logging.getLogger(__name__)
@@ -111,16 +111,13 @@ def ensure_bootstrap_for_company(company_id: int, company_uuid: str) -> bool:
     correlation_id = str(uuid4())
     stored_company_id = get_meta("company_id")
     bootstrap_done = get_meta("bootstrap_done") in {"1", "true"}
-
     if stored_company_id is None:
         _prepare_bootstrap(company_id, company_uuid)
         build_services().bootstrap.run(correlation_id=correlation_id)
         return True
 
     if stored_company_id != str(company_id):
-        wipe_local_database()
-        _prepare_bootstrap(company_id, company_uuid)
-        build_services().bootstrap.run(correlation_id=correlation_id)
+        CompanySwitchService().switch_to(company_id, company_uuid)
         return True
 
     if not bootstrap_done:

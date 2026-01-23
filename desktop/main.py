@@ -69,6 +69,7 @@ def main(page: ft.Page):
     def on_login_success(e):
         _get_app_logger().info("event=ui_login_redirect")
         scheduler.start()
+        layout.refresh_user_initials()
         page.go("/")
 
     def on_logout(e):
@@ -81,6 +82,7 @@ def main(page: ft.Page):
         except Exception:
             pass
         scheduler.stop()
+        layout.top_bar.set_user_initials("??")
         # Redireciona para a tela de login
         page.go("/login")
 

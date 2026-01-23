@@ -40,7 +40,7 @@ class TopBar:
             on_click=on_notifications,
             icon_color=tokens.topbar_text,
         )
-        self.avatar_text = ft.Text("EO", color=tokens.topbar_text)
+        self.avatar_text = ft.Text("??", color=tokens.topbar_text)
         self.avatar = ft.CircleAvatar(
             content=self.avatar_text,
             bgcolor=tokens.primary_dark,
@@ -87,5 +87,9 @@ class TopBar:
         self.notifications_button.icon_color = tokens.topbar_text
         self.avatar_text.color = tokens.topbar_text
         self.avatar.bgcolor = tokens.primary_dark
+
+    def set_user_initials(self, initials: str | None) -> None:
+        value = (initials or "").strip().upper()
+        self.avatar_text.value = value if value else "??"
 
 

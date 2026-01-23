@@ -52,30 +52,52 @@ def login_content(page: ft.Page, state: AppState):
             toast(page, message, success=False)
             app_logger.info("event=ui_login_failed email=%s code=%s", email, result.error_code)
 
-    return ft.Column(
-        [
-            ft.Text(
-                "Acesso ao Sistema IMS",
-                size=24,
-                color=THEME["text_on_dark"] if state.theme == "dark" else THEME["text_on_light"],
-            ),
-            email_field,
-            password_field,
-            ft.ElevatedButton(
-                "Entrar",
-                on_click=on_login,
-                height=TOUCH["button_height"],
-                width=360,
-                bgcolor=THEME["primary"],
-                color="white",
-                style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
-            ),
-            ft.TextButton(
-                "Esqueceu a Senha?",
-                on_click=lambda e: toast(page, "Funcionalidade a implementar!", success=False),
-            ),
-        ],
-        alignment=ft.MainAxisAlignment.CENTER,
-        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+    card = ft.Container(
+        content=ft.Column(
+            [
+                ft.Text(
+                    "Acesso ao Sistema IMS",
+                    size=24,
+                    weight=ft.FontWeight.BOLD,
+                    color=THEME["text_on_light"],
+                ),
+                email_field,
+                password_field,
+                ft.ElevatedButton(
+                    "ENTRAR",
+                    on_click=on_login,
+                    height=TOUCH["button_height"],
+                    width=360,
+                    icon=ft.Icons.LOGIN,
+                    bgcolor=THEME["primary"],
+                    color="white",
+                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=5)),
+                ),
+                ft.TextButton(
+                    "Esqueceu a Senha?",
+                    on_click=lambda e: toast(page, "Funcionalidade a implementar!", success=False),
+                ),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=10,
+        ),
+        bgcolor="white",
+        border_radius=12,
+        padding=16,
+        width=400,
+        height=350,
+        shadow=ft.BoxShadow(
+            blur_radius=18,
+            spread_radius=1,
+            color=ft.Colors.with_opacity(0.08, ft.Colors.BLACK),
+        ),
+    )
+
+    return ft.Container(
+        content=card,
         expand=True,
+        alignment=ft.alignment.center,
+        bgcolor="#F5F8FF",
+        padding=ft.padding.symmetric(horizontal=18, vertical=24),
     )

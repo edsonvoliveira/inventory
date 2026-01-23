@@ -18,7 +18,7 @@ Responsabilities:
 from desktop.core.session_service import SessionService
 from desktop.core.bootstrap_service import BootstrapService
 from desktop.data.db.connection import get_connection
-from desktop.data.repositories.app_meta_repo import set_meta
+from desktop.data.repositories.app_meta_repo import get_meta, set_meta
 from desktop.data.repositories import (
     companies_repo,
     outbox_repo,
@@ -38,20 +38,25 @@ from desktop.data.repositories import (
 
 class CompanySwitchService:
 
-    def switch_to(self, company_server_id: int) -> None:
+    def switch_to(self, company_server_id: int, company_uuid: str | None = None) -> None:
         if not company_server_id:
             raise ValueError("company_server_id inválido para troca de empresa")
 
         current_company = SessionService.get_company_server_id()
-        if current_company == company_server_id:
+        conn = get_connection()
+        stored_company_id = get_meta("company_id", conn)
+        if current_company == company_server_id and stored_company_id == str(company_server_id):
+            conn.close()
             return
 
-        conn = get_connection()
         try:
             # 1) Atualiza contexto de sessão
             SessionService.set_company_server_id(company_server_id)
 
             # 2) Limpa flags de sync / bootstrap
+            set_meta("company_id", str(company_server_id), conn)
+            if company_uuid:
+                set_meta("company_uuid", company_uuid, conn)
             set_meta("bootstrap_done", "", conn)
             set_meta("last_server_sync_at", "", conn)
             set_meta("last_pull_at", "", conn)

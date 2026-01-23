@@ -41,6 +41,8 @@ def dashboard_content(page: ft.Page, state: AppState):
     last_pull_at = _format_ts(get_meta("last_pull_at") or "n/a")
     last_push_at = _format_ts(get_meta("last_push_at") or "n/a")
     conn = get_connection()
+    user_role_db = None
+    user_name_db = None
     try:
         pending = conn.execute(
             "SELECT COUNT(1) FROM outbox_local WHERE status = 'pending'"
@@ -61,6 +63,14 @@ def dashboard_content(page: ft.Page, state: AppState):
             LIMIT 5
             """
         ).fetchall()
+        user_server_id = get_meta("user_server_id")
+        if user_server_id:
+            role_row = conn.execute(
+                "SELECT name, role FROM users_local WHERE server_id = ?",
+                (user_server_id,),
+            ).fetchone()
+            if role_row:
+                user_name_db, user_role_db = role_row
     finally:
         conn.close()
 
@@ -78,7 +88,8 @@ def dashboard_content(page: ft.Page, state: AppState):
         color=THEME["text_on_dark"] if state.theme == "dark" else THEME["text_on_light"],
     )
     user_email = (state.profile or {}).get("email", "n/a")
-    user_role = (state.profile or {}).get("role", "n/a")
+    user_name = user_name_db or (state.profile or {}).get("name", "n/a")
+    user_role = user_role_db or (state.profile or {}).get("role", "n/a")
 
     error_list = (
         ft.Column(
@@ -100,7 +111,8 @@ def dashboard_content(page: ft.Page, state: AppState):
         ft.Container(
             ft.Column(
                 [
-                    ft.Text(f"Utilizador: {user_email}", size=14, color=THEME["text_secondary"]),
+                    ft.Text(f"Utilizador: {user_name}", size=14, color=THEME["text_secondary"]),
+                    ft.Text(f"Email: {user_email}", size=14, color=THEME["text_secondary"]),
                     ft.Text(f"Perfil: {user_role}", size=14, color=THEME["text_secondary"]),
                     ft.Divider(),
                     ft.Text(f"Ultimo pull: {last_pull_at}", size=14, color=THEME["text_secondary"]),

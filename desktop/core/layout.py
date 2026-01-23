@@ -9,7 +9,9 @@ Responsibilities:
 import flet as ft
 
 from desktop.core.navigation import NAV_ITEMS
+from desktop.core.session_service import SessionService
 from desktop.core.theme import build_theme, get_theme_tokens
+from desktop.data.db.connection import get_connection
 from desktop.widgets.side_menu import SideMenu
 from desktop.widgets.top_bar import TopBar
 
@@ -78,6 +80,24 @@ class AppLayout:
         self.side_menu.set_tokens(self.tokens)
         self.atualizar_menu()
 
+    def refresh_user_initials(self) -> None:
+        user_server_id = SessionService.get_user_server_id()
+        initials = "??"
+        if user_server_id is not None:
+            conn = get_connection()
+            try:
+                row = conn.execute(
+                    "SELECT name, email FROM users_local WHERE server_id = ?",
+                    (user_server_id,),
+                ).fetchone()
+            finally:
+                conn.close()
+            if row:
+                name, email = row
+                initials = _build_initials(name, email)
+        self.top_bar.set_user_initials(initials)
+        self.page.update()
+
     def set_route(self, rota: str):
         self.rota_atual = rota
         self.atualizar_menu()
@@ -89,4 +109,17 @@ class AppLayout:
                 self.conteudo.content.controls.extend(content.controls)
             else:
                 self.conteudo.content.controls.append(content)
+
+
+def _build_initials(name: str | None, email: str | None) -> str:
+    raw = (name or "").strip()
+    if raw:
+        parts = [p for p in raw.replace(".", " ").split() if p]
+        if len(parts) == 1:
+            return parts[0][:2].upper()
+        return (parts[0][0] + parts[-1][0]).upper()
+    if email:
+        handle = email.split("@", 1)[0].strip()
+        return handle[:2].upper() if handle else "??"
+    return "??"
 

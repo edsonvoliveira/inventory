@@ -127,6 +127,7 @@ def _parse_float(value: Any) -> float | None:
 def render_import_view(page: ft.Page, on_refresh):
     state = ImportState()
 
+    header = ft.Text(IMPORT_TITLE, size=28, weight=ft.FontWeight.BOLD)
     step_title = ft.Text("1 Selecionar arquivo", size=22, weight=ft.FontWeight.BOLD)
 
     file_info = ft.Text("Nenhum arquivo selecionado.")
@@ -138,10 +139,10 @@ def render_import_view(page: ft.Page, on_refresh):
     def _set_step(value: int) -> None:
         state.step = value
         step_title.value = [
-            "1 Selecionar arquivo",
-            "2 Mapear colunas",
-            "3 Validar dados",
-            "4 Importar",
+            "1 - Selecionar arquivo",
+            "2 - Mapear colunas",
+            "3 - Validar dados",
+            "4 - Importar",
         ][state.step]
         step1.visible = state.step == 0
         step2.visible = state.step == 1
@@ -305,8 +306,6 @@ def render_import_view(page: ft.Page, on_refresh):
 
     step1 = ft.Column(
         [
-            ft.Text(IMPORT_TITLE, size=20),
-            ft.Text("1 Selecionar arquivo", weight=ft.FontWeight.BOLD),
             ft.ElevatedButton("Selecionar arquivo", on_click=_select_file),
             file_info,
             preview_table,
@@ -318,7 +317,6 @@ def render_import_view(page: ft.Page, on_refresh):
 
     step2 = ft.Column(
         [
-            ft.Text("2 Mapear colunas", weight=ft.FontWeight.BOLD),
             ft.Text("Mapeie os campos obrigatórios para Produtos (MVP)."),
             ft.Column(_build_mapping_controls(), spacing=8),
             ft.ElevatedButton("Avançar", on_click=lambda e: _next_from_mapping()),
@@ -329,7 +327,6 @@ def render_import_view(page: ft.Page, on_refresh):
 
     step3 = ft.Column(
         [
-            ft.Text("3 Validar dados", weight=ft.FontWeight.BOLD),
             validation_summary,
             validation_list,
             ft.ElevatedButton("Avançar", on_click=lambda e: _next_from_validation()),
@@ -340,7 +337,6 @@ def render_import_view(page: ft.Page, on_refresh):
 
     step4 = ft.Column(
         [
-            ft.Text("4 Importar", weight=ft.FontWeight.BOLD),
             ft.Text("A importação criará produtos locais e enviará via sync."),
             ft.ElevatedButton("Importar", on_click=_do_import),
             import_summary,
@@ -354,6 +350,7 @@ def render_import_view(page: ft.Page, on_refresh):
 
     return ft.Column(
         [
+            header,
             step_title,
             step1,
             step2,

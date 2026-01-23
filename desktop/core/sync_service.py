@@ -17,6 +17,7 @@ from desktop.app_core_container import build_services
 from desktop.core.auth_session import AuthSession
 from desktop.core.session_service import SessionService
 from desktop.core.bootstrap_service import BootstrapService
+from desktop.core.company_switch_service import CompanySwitchService
 from desktop.bootstrap.bootstrap import wipe_local_database
 from desktop.data.repositories.app_meta_repo import get_meta, set_meta
 import threading
@@ -112,7 +113,6 @@ def ensure_bootstrap_for_company(company_id: int, company_uuid: str) -> bool:
     correlation_id = str(uuid4())
     stored_company_id = get_meta("company_id")
     bootstrap_done = get_meta("bootstrap_done") in {"1", "true"}
-
     if stored_company_id is None:
         set_meta("company_id", str(company_id))
         set_meta("company_uuid", company_uuid)
@@ -122,12 +122,7 @@ def ensure_bootstrap_for_company(company_id: int, company_uuid: str) -> bool:
         return True
 
     if stored_company_id != str(company_id):
-        wipe_local_database()
-        set_meta("company_id", str(company_id))
-        set_meta("company_uuid", company_uuid)
-        set_meta("bootstrap_done", "false")
-        SessionService.set_company_server_id(company_id)
-        BootstrapService().run(correlation_id=correlation_id)
+        CompanySwitchService().switch_to(company_id, company_uuid)
         return True
 
     if not bootstrap_done:

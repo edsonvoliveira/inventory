@@ -9,6 +9,7 @@ Responsibilities:
 from desktop.core.auth_session import AuthSession
 from desktop.core.result import Result
 from desktop.core.session_service import SessionService
+from desktop.core.sync_service import ensure_bootstrap_for_company
 from desktop.core import http_client
 from desktop.core.http_client import DVServerError
 from desktop.core.strings import LOGIN_INVALID
@@ -24,6 +25,7 @@ class AuthService:
             context = http_client.get("/v1/auth/me", jwt_token=token)
             user_id = context.get("user_id")
             company_id = context.get("company_id")
+            company_uuid = context.get("company_uuid") or ""
             if user_id is None or company_id is None:
                 return Result(
                     ok=False,
@@ -32,6 +34,7 @@ class AuthService:
                 )
             SessionService.set_user_server_id(int(user_id))
             SessionService.set_company_server_id(int(company_id))
+            ensure_bootstrap_for_company(int(company_id), str(company_uuid))
         except DVServerError as exc:
             message = str(exc)
             if "401" in message or "403" in message:
