@@ -3,7 +3,7 @@
 """
 Responsibilities:
 - Render a generic import flow for CSV/XLSX.
-- Support column mapping and validation for products (MVP).
+- Support column mapping and validation for products.
 """
 
 from __future__ import annotations
@@ -23,11 +23,11 @@ from desktop.data.repositories.products_repo import ProductsRepo
 REQUIRED_FIELDS = [
     ("sku", "SKU"),
     ("name", "Nome"),
-    ("uom_base", "UOM Base"),
-    ("uom_inventory", "UOM Inventário"),
 ]
 
 OPTIONAL_FIELDS = [
+    ("uom_base", "UOM Base"),
+    ("uom_inventory", "UOM Inventário"),
     ("description", "Descrição"),
     ("conversion_factor", "Fator Conversão"),
     ("cost_price", "Custo"),
@@ -46,6 +46,11 @@ class ImportState:
     mapping: dict[str, str] = None
     validation_errors: list[str] = None
     import_errors: list[str] = None
+    ignore_existing_skus: bool = False
+    existing_skus: set[str] = None
+    skipped_existing: int = 0
+    imported_count: int = 0
+    report_path: str | None = None
 
     def __post_init__(self) -> None:
         self.columns = []
@@ -53,6 +58,11 @@ class ImportState:
         self.mapping = {}
         self.validation_errors = []
         self.import_errors = []
+        self.ignore_existing_skus = False
+        self.existing_skus = set()
+        self.skipped_existing = 0
+        self.imported_count = 0
+        self.report_path = None
 
 
 def _snack(page: ft.Page, message: str) -> None:
@@ -185,47 +195,107 @@ def render_import_view(page: ft.Page, on_refresh):
         if not state.file_path:
             _snack(page, "Selecione um arquivo antes de avançar.")
             return
+        mapping_view.content = _build_mapping_controls()
         _set_step(1)
 
     mapping_controls: dict[str, ft.Dropdown] = {}
+    mapping_view = ft.Container()
 
     def _build_mapping_controls():
         mapping_controls.clear()
-        options = [ft.dropdown.Option(c, c) for c in state.columns]
-        controls = []
-        for field, label in REQUIRED_FIELDS:
-            dd = ft.Dropdown(label=label, options=options, width=260)
-            dd.value = state.mapping.get(field)
-            mapping_controls[field] = dd
-            controls.append(dd)
-        for field, label in OPTIONAL_FIELDS:
-            dd = ft.Dropdown(label=f"{label} (opcional)", options=options, width=260)
-            dd.value = state.mapping.get(field)
-            mapping_controls[field] = dd
-            controls.append(dd)
-        return controls
+        required_set = {field for field, _label in REQUIRED_FIELDS}
+        system_options = [
+            ft.dropdown.Option("__ignore__", "Ignorar coluna"),
+            *[ft.dropdown.Option(field, label) for field, label in (REQUIRED_FIELDS + OPTIONAL_FIELDS)],
+        ]
+        auto_map = _auto_map(state.columns)
+        selected_by_file: dict[str, str] = {}
+        for field, col in auto_map.items():
+            if col:
+                selected_by_file[col] = field
+
+        row_height = 44
+        left_controls = []
+        right_controls = []
+        for col in state.columns:
+            left_controls.append(
+                ft.Container(
+                    content=ft.TextField(
+                        value=col,
+                        read_only=True,
+                        width=260,
+                        height=row_height,
+                    ),
+                    height=row_height,
+                    alignment=ft.alignment.center_left,
+                )
+            )
+            dd = ft.Dropdown(
+                options=system_options,
+                width=260,
+            )
+            dd.value = selected_by_file.get(col, "__ignore__")
+            mapping_controls[col] = dd
+            right_controls.append(
+                ft.Container(
+                    content=dd,
+                    height=row_height,
+                    alignment=ft.alignment.center_left,
+                )
+            )
+
+        return ft.Row(
+            [
+                ft.Column(
+                    [
+                        ft.Text("Coluna do arquivo", weight=ft.FontWeight.BOLD),
+                        *left_controls,
+                    ],
+                    spacing=6,
+                ),
+                ft.Column(
+                    [
+                        ft.Text("Campos do Sistema", weight=ft.FontWeight.BOLD),
+                        *right_controls,
+                    ],
+                    spacing=6,
+                ),
+            ],
+            spacing=24,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+        )
 
     def _next_from_mapping():
+        state.mapping = {}
+        used_fields: set[str] = set()
+        for col, dropdown in mapping_controls.items():
+            value = dropdown.value or "__ignore__"
+            if value == "__ignore__":
+                continue
+            if value in used_fields:
+                _snack(page, f"Campo duplicado no mapeamento: {value}")
+                return
+            used_fields.add(value)
+            state.mapping[value] = col
+
         for field, _label in REQUIRED_FIELDS:
-            if not mapping_controls.get(field) or not mapping_controls[field].value:
+            if field not in state.mapping:
                 _snack(page, f"Mapeie o campo obrigatório: {field}")
                 return
-            state.mapping[field] = mapping_controls[field].value
-        for field, _label in OPTIONAL_FIELDS:
-            if mapping_controls.get(field) and mapping_controls[field].value:
-                state.mapping[field] = mapping_controls[field].value
         _set_step(2)
         _validate_data()
 
     validation_summary = ft.Text("")
     validation_list = ft.Column([])
+    ignore_existing_checkbox = ft.Checkbox(
+        label="Ignorar SKUs já existentes e importar os demais",
+        value=False,
+    )
 
     def _validate_data():
         errors: list[str] = []
         sku_map = state.mapping.get("sku")
         name_map = state.mapping.get("name")
-        uom_base_map = state.mapping.get("uom_base")
-        uom_inv_map = state.mapping.get("uom_inventory")
 
         existing_skus: set[str] = set()
         conn = get_connection()
@@ -234,21 +304,16 @@ def render_import_view(page: ft.Page, on_refresh):
             existing_skus = {r[0] for r in rows if r and r[0]}
         finally:
             conn.close()
+        state.existing_skus = existing_skus
 
         seen_skus: set[str] = set()
         for idx, row in enumerate(state.rows, start=2):
             sku = str(row.get(sku_map, "")).strip() if sku_map else ""
             name = str(row.get(name_map, "")).strip() if name_map else ""
-            uom_base = str(row.get(uom_base_map, "")).strip() if uom_base_map else ""
-            uom_inv = str(row.get(uom_inv_map, "")).strip() if uom_inv_map else ""
             if not sku:
                 errors.append(f"Linha {idx}: SKU vazio.")
             if not name:
                 errors.append(f"Linha {idx}: Nome vazio.")
-            if not uom_base:
-                errors.append(f"Linha {idx}: UOM Base vazio.")
-            if not uom_inv:
-                errors.append(f"Linha {idx}: UOM Inventário vazio.")
             if sku:
                 if sku in seen_skus:
                     errors.append(f"Linha {idx}: SKU duplicado no arquivo ({sku}).")
@@ -266,43 +331,138 @@ def render_import_view(page: ft.Page, on_refresh):
         page.update()
 
     def _next_from_validation():
+        state.ignore_existing_skus = bool(ignore_existing_checkbox.value)
         if state.validation_errors:
-            _snack(page, "Corrija os erros antes de importar.")
-            return
+            if state.ignore_existing_skus:
+                remaining = [
+                    err for err in state.validation_errors
+                    if "SKU já existe no local" not in err
+                ]
+                if remaining:
+                    _snack(page, "Corrija os erros antes de importar.")
+                    return
+            else:
+                _snack(page, "Corrija os erros antes de importar.")
+                return
         _set_step(3)
 
     import_summary = ft.Text("")
     import_details = ft.Column([])
+    report_button = ft.ElevatedButton("Salvar relatório de erros")
+    required_hint = ft.Text(
+        "Obrigatórios: SKU, Nome",
+        size=12,
+        color=ft.Colors.ORANGE_700,
+    )
+    defaults_hint = ft.Text(
+        "Sem UOM base/inventario/fator, usa: UN, UN e 1.",
+        size=12,
+        color=ft.Colors.GREY_600,
+    )
+
+    def _build_report_text() -> str:
+        conn = get_connection()
+        try:
+            company_name = "n/a"
+            user_email = "n/a"
+            company_id = get_meta("company_id", conn)
+            user_id = get_meta("user_server_id", conn)
+            if company_id:
+                row = conn.execute(
+                    "SELECT name FROM companies_local WHERE server_id = ?",
+                    (company_id,),
+                ).fetchone()
+                if row:
+                    company_name = row[0]
+            if user_id:
+                row = conn.execute(
+                    "SELECT email FROM users_local WHERE server_id = ?",
+                    (user_id,),
+                ).fetchone()
+                if row:
+                    user_email = row[0]
+        finally:
+            conn.close()
+
+        header_lines = [
+            f"Data: {datetime.now(timezone.utc).isoformat()}",
+            f"Empresa: {company_name}",
+            f"Utilizador: {user_email}",
+            f"Importados: {state.imported_count}",
+            f"Ignorados (SKU existente): {state.skipped_existing}",
+            f"Erros: {len(state.import_errors)}",
+            "",
+        ]
+        return "\n".join(header_lines + state.import_errors)
 
     def _do_import(_e):
-        repo = ProductsRepo()
         errors = []
-        for idx, row in enumerate(state.rows, start=2):
-            data: dict[str, Any] = {}
-            for field, _label in REQUIRED_FIELDS + OPTIONAL_FIELDS:
-                col = state.mapping.get(field)
-                if not col:
-                    continue
-                value = row.get(col)
-                if field in {"conversion_factor", "cost_price"}:
-                    data[field] = _parse_float(value)
-                elif field in {"is_sensitive", "serial_number_enabled", "is_active"}:
-                    data[field] = _parse_bool(value)
-                else:
-                    data[field] = str(value).strip() if value is not None else ""
-            try:
-                repo.create(data)
-            except Exception as exc:
-                errors.append(f"Linha {idx}: {exc}")
+        skipped_existing = 0
+        imported_count = 0
+        conn = get_connection()
+        try:
+            repo = ProductsRepo(conn)
+            for idx, row in enumerate(state.rows, start=2):
+                data: dict[str, Any] = {}
+                for field, _label in REQUIRED_FIELDS + OPTIONAL_FIELDS:
+                    col = state.mapping.get(field)
+                    if not col:
+                        continue
+                    value = row.get(col)
+                    if field in {"conversion_factor", "cost_price"}:
+                        data[field] = _parse_float(value)
+                    elif field in {"is_sensitive", "serial_number_enabled", "is_active"}:
+                        data[field] = _parse_bool(value)
+                    else:
+                        data[field] = str(value).strip() if value is not None else ""
+                if not data.get("uom_base"):
+                    data["uom_base"] = "UN"
+                if not data.get("uom_inventory"):
+                    data["uom_inventory"] = data["uom_base"]
+                if data.get("conversion_factor") in (None, ""):
+                    data["conversion_factor"] = 1
+                if state.ignore_existing_skus:
+                    sku_value = data.get("sku")
+                    if sku_value and sku_value in state.existing_skus:
+                        skipped_existing += 1
+                        continue
+                try:
+                    repo.create(data)
+                    imported_count += 1
+                except Exception as exc:
+                    errors.append(f"Linha {idx}: {exc}")
+            conn.commit()
+        finally:
+            conn.close()
         state.import_errors = errors
+        state.skipped_existing = skipped_existing
+        state.imported_count = imported_count
         if errors:
-            import_summary.value = f"Importação finalizada com {len(errors)} erros."
+            import_summary.value = (
+                f"Importação finalizada com {len(errors)} erros. "
+                f"Importados: {imported_count}. Ignorados: {skipped_existing}."
+            )
             import_details.controls = [ft.Text(err, size=12) for err in errors[:20]]
+            report_button.visible = True
         else:
-            import_summary.value = "Importação concluída com sucesso."
+            import_summary.value = (
+                f"Importação concluída com sucesso. "
+                f"Importados: {imported_count}. Ignorados: {skipped_existing}."
+            )
             import_details.controls = [ft.Text("OK", size=12)]
+            report_button.visible = False
         _snack(page, "Importação finalizada.")
         page.update()
+
+    def _save_report(_e):
+        if not state.import_errors:
+            _snack(page, "Nao ha erros para salvar.")
+            return
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        save_report_picker.save_file(
+            dialog_title="Salvar relatório de erros",
+            file_name=f"import_errors_{timestamp}.txt",
+        )
 
     step1 = ft.Column(
         [
@@ -317,22 +477,28 @@ def render_import_view(page: ft.Page, on_refresh):
 
     step2 = ft.Column(
         [
-            ft.Text("Mapeie os campos obrigatórios para Produtos (MVP)."),
-            ft.Column(_build_mapping_controls(), spacing=8),
+            ft.Text("2 - Mapear colunas", weight=ft.FontWeight.BOLD),
+            ft.Text("Mapeie os campos obrigatórios para Produtos."),
+            mapping_view,
+            required_hint,
+            defaults_hint,
             ft.ElevatedButton("Avançar", on_click=lambda e: _next_from_mapping()),
         ],
         spacing=12,
         visible=False,
+        scroll=ft.ScrollMode.AUTO,
     )
 
     step3 = ft.Column(
         [
             validation_summary,
             validation_list,
+            ignore_existing_checkbox,
             ft.ElevatedButton("Avançar", on_click=lambda e: _next_from_validation()),
         ],
         spacing=12,
         visible=False,
+        scroll=ft.ScrollMode.AUTO,
     )
 
     step4 = ft.Column(
@@ -341,10 +507,28 @@ def render_import_view(page: ft.Page, on_refresh):
             ft.ElevatedButton("Importar", on_click=_do_import),
             import_summary,
             import_details,
+            report_button,
         ],
         spacing=12,
         visible=False,
+        scroll=ft.ScrollMode.AUTO,
     )
+
+    report_button.on_click = _save_report
+    report_button.visible = False
+
+    save_report_picker = ft.FilePicker()
+
+    def _on_report_saved(e: ft.FilePickerResultEvent):
+        if not e.path:
+            return
+        report_path = Path(e.path)
+        report_path.write_text(_build_report_text(), encoding="utf-8")
+        state.report_path = str(report_path)
+        _snack(page, f"Relatorio salvo: {report_path}")
+
+    save_report_picker.on_result = _on_report_saved
+    page.overlay.append(save_report_picker)
 
     _set_step(0)
 
